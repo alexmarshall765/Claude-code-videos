@@ -322,7 +322,7 @@
     const pts = data.map(([a, b]) => [X(a), Y(b)]);
     if (pc <= 0) return { X, Y, tip: pts[0], val: data[0][1], xval: data[0][0] };
     // Find tip by x-extent (curve reveals left-to-right in data-space)
-    const xEnd = lerp(xr[0], data[data.length - 1][0], pc);
+    const xEnd = lerp(data[0][0], data[data.length - 1][0], pc);
     const visible = [];
     for (let i = 0; i < data.length; i++) {
       if (data[i][0] <= xEnd) visible.push(data[i]);
