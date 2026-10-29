@@ -30,6 +30,12 @@ The coda replays the film's sixteen symbols through the same drawing code their 
 - **Score mixing.** The synth is balanced by numbers: section loudness tracks the energy map, impacts land within a millisecond, and the keys check out. It has not been tuned by ear. A listening pass should set the supersaw brightness, the snare-roll build in OBS 10, and the choir level in the finale.
 - **Vertical social cut.** `?aspect=9x16` camera presets and the 60-second edit from OBS 02, 08, 10, 14, 17, 19, 21 and 22.
 - **Render speed.** Capture pulls PNG bytes from the canvas into FFmpeg's image2pipe at about 6 fps with three pages on a 4-core machine, so the full film takes about 52 minutes. This master was captured in four `--from`/`--to` ranges, silent, then joined by stream copy with the score muxed on, so an interrupted render can resume by range. `make video` could do the same. Posting raw RGBA from the page was measured and was four times slower. The remaining cost is PNG compression of the grain and dither layers, so the next speed-up is to add the dither in FFmpeg and keep the canvas output compressible.
+- **A text-overlap check.** A one-off scan of every 15th frame for text boxes that cross found three real crossings, now fixed:
+  - OBS 09's map tag over the lamp label.
+  - OBS 16's map tag over the online count.
+  - OBS 19's ATTENTION. leaving as the next card arrived.
+
+  The remaining hits are deliberate: the title lockup, the two letters of "LO", the 250 numerals clipped above the ruler, and a wipe that masks one card from the other. Making it a `make check` rule needs a clip-aware box for those cases.
 - **Text-hold resolution.** The 2 s hold check samples every 15th frame, so it only fails runs that must be shorter than 2 s (span plus two samples). Sampling every frame around each card's exit would make the bound exact.
 
 ## External-track prompt (from the brief)
