@@ -138,7 +138,7 @@ export default scene('16_internet', {
         if (i >= countAt(s, t)) return;
         const [sx, sy] = s.project(...NODES[i]);
         const dx = [-1, 1, -1, 1][i];
-        text(s.ui, name, sx + dx * 22, sy + [20, -18, -20, -18][i], { voice: 'marker', size: 24, align: dx < 0 ? 'right' : 'left', alpha: 0.85 * (1 - span(t, 5.0, 5.5)) * clamp((t - (i < 2 ? 0 : 2)) / 0.4), scale: s.S });
+        text(s.ui, name, sx + dx * 22, sy + [20, -18, -20, -18][i], { voice: 'marker', size: 24, align: dx < 0 ? 'right' : 'left', alpha: 0.85 * (1 - span(t, 5.0, 5.5)) * clamp((t - (i < 2 ? 0 : 2)) / 0.4), scale: s.S, edge: true });
       }));
       // Packet switching: one message, four routes, reassembled
       const ps = span(t, 4.2, 6.2, ease.linear);
@@ -164,9 +164,11 @@ export default scene('16_internet', {
         if (q <= 0) return;
         const from = (i % 2 ? 1 : -1) * 700 * (1 - q);
         const x = STACK.x + from, y = STACK.y[3 - i];
-        if (i === 3 && s.cue('browser') > 0) return;
-        stroke(ctx, [[x - STACK.w / 2, y - STACK.h / 2], [x + STACK.w / 2, y - STACK.h / 2], [x + STACK.w / 2, y + STACK.h / 2], [x - STACK.w / 2, y + STACK.h / 2]], 1, { pen: { color: q >= 1 ? 'GOLD_HOT' : 'GOLD', alpha: stA, width: 2 }, closed: true, tip: false });
-        text(s.ui, LAYERS[3 - i], x, y, { voice: 'marker', size: 24, alpha: 0.9 * stA * q, scale: s.S });
+        // The application layer opens into the browser and keeps its name a moment at the window's foot.
+        const opening = i === 3 && s.cue('browser') > 0;
+        if (!opening) stroke(ctx, [[x - STACK.w / 2, y - STACK.h / 2], [x + STACK.w / 2, y - STACK.h / 2], [x + STACK.w / 2, y + STACK.h / 2], [x - STACK.w / 2, y + STACK.h / 2]], 1, { pen: { color: q >= 1 ? 'GOLD_HOT' : 'GOLD', alpha: stA, width: 2 }, closed: true, tip: false });
+        const named = opening ? 1 - span(t, 9.0, 9.3) : 1;
+        text(s.ui, LAYERS[3 - i], x, y, { voice: 'marker', size: 24, alpha: 0.9 * stA * named * clamp((q - 0.85) / 0.15), scale: s.S }); // named once it has landed
       });
       if (sk >= 1) { const lock = Math.exp(-(t - s.at('4.3')) / 0.2); if (lock > 0.02 && t > s.at('4.3')) glow(ctx, STACK.x, 740, 300, 'GOLD_HOT', 0.25 * lock); }
       ctx.globalAlpha = stA; s.ui.globalAlpha = stA;

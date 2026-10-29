@@ -76,7 +76,7 @@ export default scene('07_liberty', {
     s.screen(() => {
       card(s, 'card_birth', { x: 960, y: 418, size: 100 });
       card(s, 'attrib_lincoln', { x: 960, y: 506, size: 26, alpha: 0.85 });
-      card(s, 'card_corrects', { x: 960, y: 296, size: 100 });
+      card(s, 'card_corrects', { lines: ['THE EXPERIMENT', 'CORRECTS ITSELF.'], x: 960, y: 296, size: 100, lineHeight: 108 });
       card(s, 'card_widened', { x: 960, y: 296, size: 100 });
     });
   },

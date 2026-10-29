@@ -85,5 +85,9 @@ Italic entries are data cards set in monospace. The rest are statements set in C
 - **The cursor visits more years than the brief names.** OBS 13 moves on to 1960 for its charts. OBS 15 visits 1958 (the integrated circuit), 1971 and 2023. OBS 17 starts at 1913, matching OBS 11, and moves to 2025. OBS 18 visits 2003 and 2020 for the genome and the mRNA vaccines. In the coda the cursor races back to 1776 over the rewind, then springs to 2026 on the final chord.
 - **The signatures run on 32nds.** OBS 03's 56 signature dots land one per 32nd note from 11.1, so the constellation fills in under seven beats.
 - **OBS 20's cards.** 250 YEARS. leaves on 131.1, and FARTHER THAN ANY HUMANS, EVER. enters a beat later, on 131.2, so the two never share the screen.
+- **Labels hold 2 s too.** `make check` holds every on-screen text to the 2 s rule, not just the cards:
+  - OBS 14 names the translunar injection half a second before the burn. It drops the lunar-orbit label, because the ring reads on its own, and names TRANQUILITY BASE as the push begins on 90.1, a beat before the lock.
+  - OBS 16's application layer keeps its name for a moment as it opens into the browser.
+  - Labels that ride the camera off the frame dissolve before they leave the safe area.
 - **The coda's last word can be swapped.** `?final=ACCELERATE.` replaces ONWARD. for the brief's alternative ending; the card keeps its timing and its white type.
 - **Countdown beeps and the anvil are tuned to the key.** The beeps are A5, with C6 on the last beep before ignition, and the anvil is on D. The Morse stays at 1 kHz, as the brief specifies.

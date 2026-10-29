@@ -60,15 +60,27 @@ function canvas(w, h) {
 // size, safe area and sourcing without parsing pixels.
 // ---------------------------------------------------------------------------
 export const textLog = [];
+/** Screen box [x0, y0, x1, y1] of a rectangle drawn under ctx's current transform. */
+export function screenBox(ctx, scale, x0, y0, x1, y1) {
+  const m = ctx.getTransform();
+  const pts = [[x0, y0], [x1, y0], [x0, y1], [x1, y1]].map(([x, y]) => [(m.a * x + m.c * y + m.e) / scale, (m.b * x + m.d * y + m.f) / scale]);
+  const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+  return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+}
+/**
+ * 1 while a box sits at least `margin` px inside the 90 % safe area, falling to 0 at its
+ * edge: labels that ride the camera off the frame dissolve before they cross it.
+ */
+export function edgeFade(ctx, scale, x0, y0, x1, y1, margin = 24) {
+  const [a, b, c, d] = screenBox(ctx, scale, x0, y0, x1, y1);
+  return clamp(Math.min(a - SAFE.x0, b - SAFE.y0, SAFE.x1 - c, SAFE.y1 - d) / margin);
+}
 export function logText(ctx, scale, entry) {
   const m = ctx.getTransform();
-  const pts = [[entry.x0, entry.y0], [entry.x1, entry.y0], [entry.x0, entry.y1], [entry.x1, entry.y1]]
-    .map(([x, y]) => [(m.a * x + m.c * y + m.e) / scale, (m.b * x + m.d * y + m.f) / scale]);
-  const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
   const k = Math.sqrt(Math.abs(m.a * m.d - m.b * m.c)) / scale;
   textLog.push({
     text: entry.text, voice: entry.voice, fact: entry.fact || null, alpha: entry.alpha,
-    box: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)], px: entry.size * k,
+    box: screenBox(ctx, scale, entry.x0, entry.y0, entry.x1, entry.y1), px: entry.size * k,
   });
 }
 

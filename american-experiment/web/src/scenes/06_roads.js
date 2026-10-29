@@ -177,7 +177,7 @@ function lock(ctx, s, t) {
   stroke(ctx, [[bx + 70, by - 22], [bx + 70, by - 48], [bx + 170, by - 48], [bx + 170, by - 22]], wk, { pen: { color: 'GOLD', alpha: 0.9, width: 1.6 }, tip: false });
   for (let i = 0; i < 3; i++) stroke(ctx, [[bx + 86 + i * 30, by - 40], [bx + 104 + i * 30, by - 40], [bx + 104 + i * 30, by - 30], [bx + 86 + i * 30, by - 30]], wk, { pen: { color: 'GOLD', alpha: 0.7, width: 1 }, closed: true, tip: false });
   hatch(ctx, hull, wk, { angle: Math.PI / 4, gap: 7, alpha: 0.3 });
-  text(s.ui, 'ERIE CANAL · 1825', 2850, 944, { voice: 'data', size: 26, alpha: 0.85 * span(t, 2.0, 2.5) * (1 - span(t, 5.0, 5.4)), fact: 'erie_canal_1825', scale: s.S });
+  text(s.ui, 'ERIE CANAL · 1825', 2850, 944, { voice: 'data', size: 26, alpha: 0.85 * span(t, 2.0, 2.5) * (1 - span(t, 5.0, 5.4)), fact: 'erie_canal_1825', scale: s.S, edge: true });
 }
 
 function paddle(ctx, s, t) {
@@ -232,8 +232,9 @@ function wire(ctx, s, t) {
   });
   stroke(ctx, WIRE, sub(k, 0.3, 1), { pen: { color: 'GOLD', alpha: 0.9, width: 1.6 } });
   const la = sub(k, 0.4, 1);
-  text(s.ui, 'WASHINGTON', POLES[0], GROUND2 + 40, { voice: 'marker', size: 24, alpha: 0.85 * la, scale: s.S });
-  text(s.ui, 'BALTIMORE', POLES[POLES.length - 1], GROUND2 + 40, { voice: 'marker', size: 24, alpha: 0.85 * la, scale: s.S });
+  // The end names read inward from their poles, so the frame edge never clips them.
+  text(s.ui, 'WASHINGTON', POLES[0] - 24, GROUND2 + 40, { voice: 'marker', size: 24, align: 'left', alpha: 0.85 * la, scale: s.S, edge: true });
+  text(s.ui, 'BALTIMORE', POLES[POLES.length - 1] + 24, GROUND2 + 40, { voice: 'marker', size: 24, align: 'right', alpha: 0.85 * la, scale: s.S, edge: true });
 
   // The key at Washington and the register at Baltimore
   const t0 = s.at('3.3'), unit = s.beatDur / 4;

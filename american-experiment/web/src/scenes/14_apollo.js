@@ -315,9 +315,10 @@ function shotB(ctx, s, t) {
     craft = coast < 1 ? (tip || pointAt(TRANS, coast)) : craft;
     const k = Math.exp(-(t - 16.0) / 0.25);
     glow(ctx, P_TLI[0], P_TLI[1], 60 * k + 10, 'GOLD_HOT', 0.8 * k + 0.15 * tli);
-    text(s.ui, 'TRANSLUNAR INJECTION', P_TLI[0] + 40, P_TLI[1] - 46, { voice: 'data', size: 24, align: 'left', alpha: 0.85 * span(t, 16.0, 16.4) * preZoom, scale: s.S });
     ctx.restore();
   }
+  // Named half a second ahead of the burn, so the label holds its two seconds.
+  if (t >= 15.5) text(s.ui, 'TRANSLUNAR INJECTION', P_TLI[0] + 40, P_TLI[1] - 46, { voice: 'data', size: 24, align: 'left', alpha: 0.85 * span(t, 15.5, 15.8) * preZoom, scale: s.S });
   // The Moon and lunar orbit
   const lw = Math.pow(s.cam2.zoom, -0.85);
   const mp = span(t, 16.2, 16.9, ease.inOut);
@@ -330,7 +331,6 @@ function shotB(ctx, s, t) {
     stroke(ctx, arcPts(MOON[0], MOON[1], RLO, Math.PI / 2, a, 120), 1, { pen: { color: 'GOLD_HOT', alpha: 0.8, width: 1.6 }, tip: false });
     circle(ctx, MOON[0], MOON[1], RLO, lo, { pen: 'construction', tip: false, a0: Math.PI / 2, dir: -1 });
     if (t < 17.75) craft = [MOON[0] + RLO * Math.cos(a), MOON[1] + RLO * Math.sin(a)];
-    text(s.ui, 'LUNAR ORBIT', MOON[0], MOON[1] - RLO - 34, { voice: 'data', size: 24, alpha: 0.85 * sub(lo, 0.2, 0.6) * (1 - span(t, 17.6, 17.9)), scale: s.S });
     ctx.restore();
   }
   // Descent to the surface
@@ -394,7 +394,8 @@ function crosshair(s, t) {
   const x = (LAND[0] - cam.x) * cam.zoom + W / 2, y = (LAND[1] - cam.y) * cam.zoom + H / 2;
   const conv = span(t, 18.45, 19.0, ease.inOut);
   const lock = t >= 19.0 ? 1 : 0;
-  const a = span(t, 18.35, 18.6) * (1 - span(t, 19.85, 20.0));
+  // It appears as the push begins, so its label holds two seconds before touchdown.
+  const a = span(t, 17.95, 18.15) * (1 - span(t, 19.85, 20.0));
   if (a <= 0) return;
   const r = lerp(260, 48, conv);
   const col = lock ? 'GOLD_HOT' : 'GOLD';
@@ -416,7 +417,7 @@ function crosshair(s, t) {
     g.fillStyle = rgba('INK', 0.75 * a * snap);
     g.fillRect(x - 150, y + r + 40, 300, 36);
   }
-  text(g, 'TRANQUILITY BASE', x, y + r + 58, { voice: 'data', size: 24, alpha: 0.95 * a * snap, scale: s.S });
+  text(g, 'TRANQUILITY BASE', x, y + r + 58, { voice: lock ? 'dataBold' : 'data', size: 24, alpha: 0.95 * a, scale: s.S, color: lock ? 'GOLD_HOT' : 'GOLD' });
 }
 
 /** The lunar module in line art. Anchor = surface point between the footpads. */

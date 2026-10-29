@@ -8,7 +8,7 @@
 
 import { scene, zoomAbout } from './common.js';
 import { rgba } from '../theme.js';
-import { ease, clamp, lerp, sub, span, TAU, noise1 } from '../engine.js';
+import { ease, clamp, lerp, sub, span, TAU, noise1, edgeFade } from '../engine.js';
 import { stroke, circle, glow, dot } from '../draw/paths.js';
 import { card, text, textWidth } from '../draw/type.js';
 import { US, mapView, outline, borders, fillStates, groupOutline, statesPath, schematic } from '../draw/map.js';
@@ -57,6 +57,8 @@ function label(s, str, x, y, a, o = {}) {
   if (a <= 0) return;
   const size = o.size || 24, w = textWidth(s.ui, str, { voice: o.voice || 'data', size });
   const x0 = o.align === 'left' ? x : o.align === 'right' ? x - w : x - w / 2;
+  if (o.edge) a *= edgeFade(s.ui, s.S, x0 - 8, y - size * 0.75, x0 + w + 8, y + size * 0.75);
+  if (a <= 0.002) return;
   s.ui.fillStyle = rgba('INK', 0.72 * a);
   s.ui.fillRect(x0 - 8, y - size * 0.75, w + 16, size * 1.5);
   text(s.ui, str, x, y, { voice: o.voice || 'data', size, align: o.align || 'center', alpha: a, fact: o.fact, scale: s.S, color: o.color });
@@ -140,8 +142,8 @@ export default scene('05_expansion', {
         dot(ctx, px, py, 4.5, 'GOLD_HOT', ra);
         glow(ctx, px, py, 24, 'GOLD_HOT', 0.5 * ra);
         const la = ease.out(clamp((t - lc0) / 0.3)) * ra;
-        label(s, 'CORPS OF DISCOVERY', 432, 504, la, { voice: 'marker', size: 24, align: 'right' });
-        label(s, `DAY ${Math.round(day)}`, 432, 544, la, { voice: 'dataBold', size: 28, align: 'right', fact: 'corps_of_discovery' });
+        label(s, 'CORPS OF DISCOVERY', 432, 504, la, { voice: 'marker', size: 24, align: 'right', edge: true });
+        label(s, `DAY ${Math.round(day)}`, 432, 544, la, { voice: 'dataBold', size: 28, align: 'right', fact: 'corps_of_discovery', edge: true });
         const [sx, sy] = RPTS[0];
         circle(ctx, sx, sy, 7, la, { pen: { color: 'GOLD_HOT', alpha: la, width: 1.6 }, tip: false });
       }

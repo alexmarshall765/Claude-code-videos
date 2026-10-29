@@ -3,7 +3,7 @@
 // Cards take their words and timing from timeline.json; scenes only place them.
 
 import { FONT, WEIGHT, TRACK, rgba } from '../theme.js';
-import { logText, ease, clamp, span } from '../engine.js';
+import { logText, edgeFade, ease, clamp, span } from '../engine.js';
 
 const layoutCache = new Map();
 
@@ -42,16 +42,20 @@ export const voiceOf = v => VOICE[v] || VOICE.data;
 
 /**
  * Draw one line of text. `reveal(i, n)` returns 0..1 per glyph for staggered entrances.
- * Every call is logged (screen box, effective size, fact) for `make check`.
+ * o.edge fades a label that rides the camera toward the frame edge before it leaves the
+ * safe area. Every call is logged (screen box, effective size, fact) for `make check`.
  */
 export function text(g, str, x, y, o = {}) {
   const v = voiceOf(o.voice || 'data');
   const size = o.size || 26, face = o.face || v.face, weight = o.weight || v.weight;
-  const track = o.track ?? v.track, color = o.color || v.color, alpha = o.alpha ?? 1;
+  const track = o.track ?? v.track, color = o.color || v.color;
+  let alpha = o.alpha ?? 1;
   if (alpha <= 0.002 || !str) return 0;
   const L = layout(g, str, size, face, weight, track);
   const align = o.align || 'center';
   const x0 = align === 'center' ? x - L.width / 2 : align === 'right' ? x - L.width : x;
+  if (o.edge) alpha *= edgeFade(g, o.scale || 1, x0, y - size / 2, x0 + L.width, y + size / 2);
+  if (alpha <= 0.002) return L.width;
   setFont(g, size, face, weight);
   g.textAlign = 'left';
   g.textBaseline = 'middle';

@@ -206,7 +206,7 @@ function plates(ctx, s, t) {
   const code = 'while experiment: build()';
   const n = Math.floor(clamp((t - 9.9) / 0.9) * code.length);
   if (n > 0) {
-    text(s.ui, code.slice(0, n), 880, 866, { voice: 'dataBold', size: 28, align: 'left', alpha: 1, scale: s.S });
+    text(s.ui, code, 880, 866, { voice: 'dataBold', size: 28, align: 'left', alpha: 1, scale: s.S, reveal: i => (i < n ? 1 : 0) });
     if (Math.floor(t * 4) % 2 === 0 || n < code.length) {
       const w = n * 0.66 * 28;
       ctx.fillStyle = rgba('GOLD_HOT', 0.9); ctx.fillRect(884 + w, 852, 12, 28);

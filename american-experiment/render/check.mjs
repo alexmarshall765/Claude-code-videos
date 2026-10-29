@@ -5,6 +5,7 @@
 //   node render/check.mjs --video FILE    also verify a rendered MP4's length and frame count
 //   node render/check.mjs --motion        also prove nothing holds still for more than 1 s (slow)
 //   node render/check.mjs --stride 30     sample every 30th frame for the on-screen text checks
+//   node render/check.mjs --all           list every offender, not just the first six
 //
 // Exit code 1 if any check fails.
 
@@ -150,7 +151,7 @@ let texts = 0;
 // Live readouts keep one key while their digits change; the ruler and the countdown are
 // readouts by design.
 const runs = new Map();
-const holdKey = tx => `${tx.voice}|${tx.text.replace(/\d[\d,.]*/g, '#')}`;
+const holdKey = tx => tx.text.replace(/\d[\d,.]*/g, '#'); // a highlight (data → dataBold) is the same words
 const holdExempt = tx => [].concat(tx.fact || []).some(f => f === 'structural:ruler' || f === 'structural:countdown');
 const closeRun = (key, r) => {
   const span = (r.last - r.first) / tl.fps;
@@ -184,7 +185,8 @@ for (let n = 0; n < tl.frames; n += stride) {
 process.stdout.write('\r' + ' '.repeat(60) + '\r');
 // A text still up at the last frame ends with the film, so its run is not cut short.
 for (const [key, r] of runs) if (r.last + stride < tl.frames) closeRun(key, r);
-const report = (m, label) => { if (!m.size) return true; fail(`${label}: ${[...m].slice(0, 6).map(([k, v]) => `"${k}" ${v}`).join('; ')}${m.size > 6 ? ` (+${m.size - 6} more)` : ''}`); return false; };
+const shown = flag('all') ? Infinity : 6; // --all lists every offender
+const report = (m, label) => { if (!m.size) return true; fail(`${label}: ${[...m].slice(0, shown).map(([k, v]) => `"${k}" ${v}`).join('; ')}${m.size > shown ? ` (+${m.size - shown} more)` : ''}`); return false; };
 const a1 = report(sizeBad, 'text smaller than 24 px');
 const a2 = report(safeBad, 'text outside the 90 % safe area');
 const a3 = report(factBad, 'numbers on screen without a fact');

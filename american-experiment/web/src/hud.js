@@ -127,7 +127,7 @@ export class Hud {
     if (nextP > 0) {
       const xn = lerp(RULER.x1, lerp(RULER.next, W + 80, ease.inOut(runoff)), nextP);
       stroke(g, [[RULER.x1, y], [xn, y]], 1, { pen: { color: 'GOLD', alpha: 0.55 * ra, width: 1.5 }, tip: false, dash: [7, 7] });
-      text(g, 'NEXT', lerp(RULER.next - 20, W + 40, ease.inOut(runoff)), y - 26, { voice: 'marker', size: 24, alpha: 0.8 * nextP * ra * (1 - runoff), scale: S });
+      text(g, 'NEXT', lerp(RULER.next - 20, W + 40, ease.inOut(runoff)), y - 26, { voice: 'marker', size: 24, alpha: 0.8 * nextP * ra * (1 - runoff), scale: S, edge: true });
     }
 
     // Event dots: the constellation of achievements.

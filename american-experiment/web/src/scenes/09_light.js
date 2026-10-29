@@ -97,6 +97,9 @@ export default scene('09_light', {
 
 function telephone(ctx, s, t) {
   const p = s.cue('telephone', ease.inOut), fade = 1 - span(t, 5.9, 6.2);
+  // The label lands with the cue and holds its full two seconds.
+  const la = 0.85 * clamp((t - s.at('3.1')) / 0.2) * (1 - span(t, 6.0, 6.3));
+  if (la > 0) text(s.ui, 'TELEPHONE · 1876', 1500, 400, { voice: 'data', size: 26, alpha: la, fact: 'telephone_1876', scale: s.S });
   if (p <= 0 || fade <= 0) return;
   const A = { color: 'GOLD', alpha: 0.95 * fade, width: 1.8 };
   const L = [1290, 560], R = [1710, 560];
@@ -135,7 +138,6 @@ function telephone(ctx, s, t) {
       glow(ctx, x, y, 14, 'GOLD_HOT', 0.8 * fade); dot(ctx, x, y, 2.6, 'WHITE', fade);
     }
   }
-  text(s.ui, 'TELEPHONE · 1876', 1500, 400, { voice: 'data', size: 26, alpha: 0.85 * sub(p, 0.1, 0.4) * fade, fact: 'telephone_1876', scale: s.S });
 }
 
 function odometer(ctx, s, t) {
