@@ -28,7 +28,7 @@ Build order, chosen so that shared drawing tools arrive first:
 - **The hand-off from climb to diagram.** It reads, but the moment when the pad has gone and the globe is only starting to draw is a little empty. A true line morph would close that gap: the ground line curling up into the globe.
 - **Score mixing.** The synth is balanced by numbers: section loudness tracks the energy map, impacts land within a millisecond, and the keys check out. It has not been tuned by ear. A listening pass should set the supersaw brightness, the snare-roll build in OBS 10, and the choir level in the finale.
 - **Vertical social cut.** `?aspect=9x16` camera presets and the 60-second edit from OBS 02, 08, 10, 14, 17, 19, 21 and 22, once those scenes exist.
-- **Render speed.** Capture streams raw RGBA to FFmpeg instead of PNGs, because the grain and dither layers make PNG compression the bottleneck. A WebGL bloom pass would cut frame time further.
+- **Render speed.** Capture pulls PNG bytes from the canvas into FFmpeg's image2pipe. That runs at about 7 fps with three pages on a 4-core machine: the slice takes 6 minutes and the full film about 40. Posting raw RGBA from the page was measured and was four times slower. The remaining cost is PNG compression of the grain and dither layers, so the next speed-up is to add the dither in FFmpeg and keep the canvas output compressible.
 
 ## External-track prompt (from the brief)
 
