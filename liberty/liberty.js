@@ -7,10 +7,13 @@
  *  - Everything is a pure function of time:  renderAt(t) draws frame t (seconds).
  *    No state accumulates between frames, so preview scrubbing and offline
  *    frame-by-frame rendering produce identical images.
- *  - SCENES (bottom of file) is the master timeline. Each scene has a duration,
- *    a chapter label, a year range for the timeline bar and a draw(t, dur)
- *    function receiving LOCAL time. Change a duration and everything after it
- *    re-flows automatically.
+ *  - timeline.js is the master timeline, shared with the score (score.mjs):
+ *    a 120 BPM grid, each scene's length in bars and named sync cues in beats.
+ *    Every cut lands on a downbeat and every headline on a beat, because the
+ *    picture draws to the same cues the music is composed to.
+ *  - SCENES (bottom of file) adds the picture side: chapter label, year range
+ *    for the timeline bar and a draw(t, dur) function receiving LOCAL time.
+ *    Change a scene's bars in timeline.js and everything after it re-flows.
  *  - Reusable "plates" (torch, Capitol, bridge, Wright Flyer, Saturn V, chip,
  *    booster tower ...) are drawn at any position/scale with a progress 0..1
  *    so they can assemble in their own scene and reappear in the montage.
@@ -37,6 +40,13 @@
   // shadowBlur ignores the canvas transform, so glow is scaled by hand.
   const GLOW = params.has('noglow') ? 0 : SCALE;
   const FINAL_WORD = params.get('final') || 'ONWARD.'; // try ?final=ACCELERATE.
+
+  // Master timeline: tempo grid, scene lengths and sync cues (timeline.js).
+  // Q.<scene>.<cue> is a cue's time in seconds from that scene's downbeat.
+  const TL = window.LIBERTY_TIMELINE;
+  const BEAT = TL.BEAT;
+  const Q = {};
+  TL.SCENES.forEach(s => { Q[s.id] = s.at; });
 
   const canvas = document.getElementById('c');
   canvas.width = W * SCALE;
@@ -1160,15 +1170,17 @@
   // ===========================================================================
 
   function sOpen(t) {
-    const cx = 960, cy = 420;
-    seal(cx, cy, 280, seg(t, 0.2, 3.2), t, seg(t, 3.0, 5.5));
-    torch(cx, cy - 10, 1.05, seg(t, 0.9, 3.6, E.inOut), t, seg(t, 3.0, 4.2, E.out));
-    kinetic('LIBERTY', cx, 820, t, 3.7, { size: 150, track: 46, stagger: 0.08, dur: 1.2, glow: 34 });
-    kinetic('A NATION CONCEIVED IN LIBERTY.', cx, 912, t, 5.1, { size: 30, track: 12, weight: 500, stagger: 0.025, rgb: C.gold, glow: 10 });
-    txt('THE AMERICAN PROJECT · MDCCLXXVI — MMXXVI', cx, 962, { size: 13, track: 6, a: seg(t, 6.0, 7.0) * 0.7 });
+    const q = Q.open, cx = 960, cy = 420;
+    // The flame ignites on the motif's third note and the title lands on its fourth.
+    seal(cx, cy, 280, seg(t, 0.2, q.flame), t, seg(t, q.flame, q.flame + 2.5));
+    torch(cx, cy - 10, 1.05, seg(t, 0.8, q.flame + 0.4, E.inOut), t, seg(t, q.flame, q.flame + 1.2, E.out));
+    kinetic('LIBERTY', cx, 820, t, q.title, { size: 150, track: 46, stagger: 0.08, dur: 1.2, glow: 34 });
+    kinetic('A NATION CONCEIVED IN LIBERTY.', cx, 912, t, q.subtitle, { size: 30, track: 12, weight: 500, stagger: 0.025, rgb: C.gold, glow: 10 });
+    txt('THE AMERICAN PROJECT · MDCCLXXVI — MMXXVI', cx, 962, { size: 13, track: 6, a: seg(t, q.legend, q.legend + 1.0) * 0.7 });
   }
 
   function sFounding(t) {
+    const q = Q.founding;
     // The document, drafted line by line.
     const x0 = 250, y0 = 150, w = 560, h = 780;
     pen(C.gold, 0.9, 1.6, 6);
@@ -1190,35 +1202,41 @@
     // Cursive loops (a prolate trochoid) and an underline swash.
     const flourish = sample(u => [x0 + 140 + u * 280 - Math.sin(u * TAU * 4) * 18, y0 + 650 - Math.cos(u * TAU * 4) * 16 + u * 6], 160);
     flourish.push(...sample(u => [x0 + 420 - u * 300, y0 + 686 + Math.sin(u * Math.PI) * 10], 30));
-    polyP(flourish, seg(t, 3.6, 4.8, E.linear), false);
+    polyP(flourish, seg(t, q.quote, q.quote + 1.2, E.linear), false);
     pen(C.gold, 0.5, 1);
     for (let i = 0; i < 8; i++) {
       const sx = x0 + 50 + (i % 4) * 120, sy = y0 + 730 + Math.floor(i / 4) * 26;
-      polyP(sample(u => [sx + u * 90, sy + Math.sin(u * 20 + i) * 4], 30), seg(t, 4.2 + i * 0.08, 4.8 + i * 0.08, E.linear), false, false);
+      polyP(sample(u => [sx + u * 90, sy + Math.sin(u * 20 + i) * 4], 30), seg(t, q.quote + 0.6 + i * 0.08, q.quote + 1.2 + i * 0.08, E.linear), false, false);
     }
     // The truths.
     const X = 1340;
     thirteen(X, 215, 56, 9, seg(t, 0.6, 2.6));
-    kinetic('WE HOLD', X, 365, t, 1.8, { size: 90, track: 16, stagger: 0.06, dur: 0.9 });
-    kinetic('THESE TRUTHS', X, 470, t, 2.3, { size: 90, track: 16, stagger: 0.05, dur: 0.9 });
-    const q = [['to be self-evident, that all men are created equal,', 3.7], ['that they are endowed by their Creator', 4.2], ['with certain unalienable Rights —', 4.7]];
-    q.forEach(([s, t0]) => txt(s, X, 590 + (t0 - 3.7) * 92, { size: 32, font: F.serif, italic: true, a: seg(t, t0, t0 + 0.8) }));
+    kinetic('WE HOLD', X, 365, t, q.hold, { size: 90, track: 16, stagger: 0.06, dur: 0.9 });
+    kinetic('THESE TRUTHS', X, 470, t, q.truths, { size: 90, track: 16, stagger: 0.05, dur: 0.9 });
+    ['to be self-evident, that all men are created equal,', 'that they are endowed by their Creator', 'with certain unalienable Rights —']
+      .forEach((s, i) => txt(s, X, 590 + i * 46, { size: 32, font: F.serif, italic: true, a: seg(t, q.quote + i * BEAT, q.quote + i * BEAT + 0.8) }));
     pen(C.gold, 0.6, 1);
-    lineP(X - 260, 755, X + 260, 755, seg(t, 5.4, 6.2), false);
-    kinetic('LIFE · LIBERTY · THE PURSUIT OF HAPPINESS', X, 800, t, 5.8, { size: 28, track: 6, weight: 600, stagger: 0.02, glow: 14 });
+    lineP(X - 260, 755, X + 260, 755, seg(t, q.life - 0.7, q.life), false);
+    // One phrase per beat, each on its own chime.
+    kineticWords(['LIFE ·', 'LIBERTY ·', 'THE PURSUIT OF HAPPINESS'], X, 800, t, [q.life, q.liberty, q.pursuit],
+      { size: 28, track: 6, weight: 600, stagger: 0.015, dur: 0.6, glow: 14, gap: 20 });
   }
 
   function sConstitution(t) {
-    capitol(740, 900, 0.82, seg(t, 0.1, 5.2, E.inOut));
-    dimension(220, 900, 220, 900 - 623 * 0.82, '288 FT', seg(t, 4.0, 5.2));
-    kinetic('LIMITED GOVERNMENT.', 960, 175, t, 2.4, { size: 66, track: 12, stagger: 0.03 });
-    kinetic('UNLIMITED AMBITION.', 960, 262, t, 4.4, { size: 66, track: 12, stagger: 0.03, rgb: C.white, glow: 30 });
-    balances(1530, 600, 165, seg(t, 1.6, 5.4, E.linear), t);
-    // Bill of Rights: ten amendments, ticked off
+    const q = Q.constitution;
+    capitol(740, 900, 0.82, seg(t, 0, q.ambition + 0.5, E.inOut));
+    dimension(220, 900, 220, 900 - 623 * 0.82, '288 FT', seg(t, q.ambition - 0.5, q.ambition + 0.6));
+    kinetic('LIMITED GOVERNMENT.', 960, 175, t, q.limited, { size: 66, track: 12, stagger: 0.03 });
+    kinetic('UNLIMITED AMBITION.', 960, 262, t, q.ambition, { size: 66, track: 12, stagger: 0.03, rgb: C.white, glow: 30 });
+    balances(1530, 600, 165, seg(t, 1.0, q.rights - 0.5, E.linear), t);
+    // Bill of Rights: ten amendments, ticked off one per sixteenth note.
     const rn = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
-    txt('BILL OF RIGHTS · 1791', 1530, 838, { size: 14, track: 4, a: seg(t, 5.2, 5.8) });
-    rn.forEach((n, i) => txt(n, 1530 - 270 + i * 60, 880, { size: 22, font: F.display, weight: 600, rgb: C.bright, a: seg(t, 5.6 + i * 0.12, 6.0 + i * 0.12), glow: 8 }));
-    txt('CONSTITUTION SIGNED 1787 · RATIFIED 1788 · FIRST CONGRESS 1789', 740, 945, { size: 13, track: 3, a: seg(t, 3.0, 4.0) * 0.8 });
+    txt('BILL OF RIGHTS · 1791', 1530, 838, { size: 14, track: 4, a: seg(t, q.rights - 0.6, q.rights) });
+    rn.forEach((n, i) => {
+      const t0 = q.rights + (i * BEAT) / 4;
+      txt(n, 1530 - 270 + i * 60, 880, { size: 22, font: F.display, weight: 600, rgb: C.bright, a: seg(t, t0, t0 + 0.3), glow: 8 });
+    });
+    txt('CONSTITUTION SIGNED 1787 · RATIFIED 1788 · FIRST CONGRESS 1789', 740, 945, { size: 13, track: 3, a: seg(t, 2.5, 3.5) * 0.8 });
   }
 
   // Territorial growth: [year, cumulative square miles, label, lon, lat]
@@ -1228,11 +1246,12 @@
     [1846, 2463587, 'OREGON · 1846', -119.6, 44.8], [1848, 2992776, 'MEXICAN CESSION · 1848', -116.5, 37.5],
     [1853, 3022387, 'GADSDEN · 1853', -110.5, 32.2],
   ];
+  const SWEEP = [0.5, 6.5]; // frontier sweep window (local seconds), shared with the timeline year
   function sExpansion(t) {
     const proj = makeProj(960, 590, 26);
     graticule(proj, 0.14, seg(t, 0, 1.2));
     // The frontier meridian sweeps west from the Mississippi to the Pacific.
-    const q = seg(t, 0.9, 7.2, E.inOut);
+    const q = seg(t, SWEEP[0], SWEEP[1], E.inOut);
     const frontier = lerp(-89.6, -125.5, q); // 1783: the Mississippi was the western border
     const year = Math.round(lerp(1783, 1853, q));
     ctx.save();
@@ -1261,41 +1280,42 @@
       ctx.restore();
     }
     // Lewis & Clark, 1804–1806
-    const lc = seg(t, 2.2, 5.6, E.linear);
+    const lc = seg(t, 1.5, 5.0, E.linear);
     pen(C.red, 1, 2.2, 10);
     ctx.setLineDash([7, 6]);
     const tip = polyP(LEWIS_CLARK.map(([a, b]) => proj(a, b)), lc, false, false);
     ctx.setLineDash([]);
     if (lc > 0 && lc < 1 && tip) dot(tip[0], tip[1], 5, C.red, 1, 16);
     const stl = proj(-90.2, 38.6), fc = proj(-123.9, 46.1);
-    annot('ST. LOUIS · 1804', ...stl, stl[0] - 60, stl[1] + 110, seg(t, 2.0, 2.6), 'right');
-    annot('FORT CLATSOP · 1805', ...fc, fc[0] + 10, fc[1] - 80, seg(t, 5.4, 6.0), 'left');
+    annot('ST. LOUIS · 1804', ...stl, stl[0] - 60, stl[1] + 110, seg(t, 1.3, 1.9), 'right');
+    annot('FORT CLATSOP · 1805', ...fc, fc[0] + 10, fc[1] - 80, seg(t, 4.8, 5.4), 'left');
     // Label sits just above the northern border (drawn as a straight chord along the 49th parallel)
     const nb0 = proj(-123, 49), nb1 = proj(-95.2, 49), lcx = proj(-104, 49)[0];
     const lcy = lerp(nb0[1], nb1[1], (lcx - nb0[0]) / (nb1[0] - nb0[0])) - 22;
-    txt('LEWIS & CLARK', lcx, lcy, { size: 13, track: 3, rgb: C.red, a: seg(t, 3.0, 3.6) });
+    txt('LEWIS & CLARK', lcx, lcy, { size: 13, track: 3, rgb: C.red, a: seg(t, 2.4, 3.0) });
     // Acquisitions light up as the frontier passes.
     let area = ACQ[0][1];
     ACQ.forEach(([y, a, label, lo, la], i) => {
       if (year >= y) area = a;
       const [x, yy] = proj(lo, la);
-      const k = seg(t, 1.0 + i * 0.9, 1.6 + i * 0.9);
+      const k = seg(t, 0.8 + i * 0.8, 1.4 + i * 0.8);
       if (year >= y) { dot(x, yy, 3, C.bright, k); txt(label, x, yy + 16, { size: 12, track: 1.5, a: k, rgb: C.bright }); }
     });
     // Ledger, lower left
     txt(String(year), 260, 880, { size: 62, font: F.display, weight: 600, align: 'left', rgb: C.bright, a: seg(t, 0.6, 1.2), glow: 12 });
     txt(`${fmt(area)} SQ. MI.`, 262, 930, { size: 18, align: 'left', track: 3, a: seg(t, 0.8, 1.4) });
-    kinetic('WE CROSSED A CONTINENT.', 960, 170, t, 4.6, { size: 64, track: 12, stagger: 0.03 });
+    kinetic('WE CROSSED A CONTINENT.', 960, 170, t, Q.expansion.continent, { size: 64, track: 12, stagger: 0.03 });
   }
 
   function sInfrastructure(t) {
+    const q = Q.infra;
     const plates = [
       ['ERIE CANAL · 1825', '363 MILES · LAKE ERIE TO THE HUDSON', (x, y, p) => canalLock(x, y + 20, 1.05, p, seg(t, 2.0, 5.5))],
       ['CLERMONT · 1807', 'STEAM UP THE HUDSON', (x, y, p) => steamboat(x, y + 80, 1.15, p, t)],
       ['B & O RAILROAD · 1830', 'IRON ROADS WEST', (x, y, p) => locomotive(x, y + 110, 1.2, p, t)],
     ];
     plates.forEach(([title, sub, draw], i) => {
-      const cx = 360 + i * 600, cy = 500, t0 = 0.2 + i * 0.5;
+      const cx = 360 + i * 600, cy = 500, t0 = q.plates + i * BEAT; // one frame per beat
       const p = seg(t, t0, t0 + 3.0, E.inOut);
       pen(C.gold, 0.8, 1.2);
       rectP(cx - 270, cy - 230, 540, 440, seg(t, t0, t0 + 1));
@@ -1307,36 +1327,40 @@
       txt(`FIG. ${['A', 'B', 'C'][i]}`, cx + 255, cy - 210, { size: 11, align: 'right', a: seg(t, t0 + 0.5, t0 + 1.2) * 0.6 });
       draw(cx, cy, p);
     });
-    kinetic('WE BUILT THE ROADS.', 960, 860, t, 4.0, { size: 70, track: 14, stagger: 0.035 });
-    txt('CANALS · STEAMBOATS · RAILROADS · TELEGRAPH', 960, 935, { size: 15, track: 6, a: seg(t, 5.0, 6.0) * 0.8 });
+    kinetic('WE BUILT THE ROADS.', 960, 860, t, q.roads, { size: 70, track: 14, stagger: 0.035 });
+    txt('CANALS · STEAMBOATS · RAILROADS · TELEGRAPH', 960, 935, { size: 15, track: 6, a: seg(t, q.roads + 1.0, q.roads + 2.0) * 0.8 });
   }
 
   function sIndustry(t) {
-    bridge(960, 600, 1.0, seg(t, 0.1, 5.6, E.inOut), t);
-    dimension(660, 790, 1260, 790, '1,595 FT · LONGEST SPAN ON EARTH, 1883', seg(t, 4.6, 5.8));
+    const q = Q.industry;
+    // The last diagonal stays land on LIGHT.
+    bridge(960, 600, 1.0, seg(t, 0, q.light, E.inOut), t);
+    dimension(660, 790, 1260, 790, '1,595 FT · LONGEST SPAN ON EARTH, 1883', seg(t, q.light, q.light + 1.0));
     // Steel output chart, upper right
     const c = chart({
-      x: 1440, y: 150, w: 320, h: 150, p: seg(t, 1.2, 6.0, E.inOut),
+      x: 1440, y: 150, w: 320, h: 150, p: seg(t, 1.0, 6.0, E.inOut),
       data: [[1870, 0.07], [1875, 0.4], [1880, 1.25], [1885, 1.7], [1890, 4.3], [1895, 6.1], [1900, 10.2], [1905, 20.0], [1910, 26.1]],
       xr: [1870, 1910], yr: [0, 28], xticks: [[1870, '1870'], [1890, '1890'], [1910, '1910']], yticks: [[0, '0'], [25, '25M']],
       title: 'U.S. STEEL OUTPUT · TONS',
     });
-    txt(`${c.val.toFixed(1)}M`, c.tip[0] - 10, c.tip[1] - 22, { size: 15, align: 'right', rgb: C.bright, a: seg(t, 1.6, 2.2) });
+    txt(`${c.val.toFixed(1)}M`, c.tip[0] - 10, c.tip[1] - 22, { size: 15, align: 'right', rgb: C.bright, a: seg(t, 1.4, 2.0) });
+    // Milestones tick in one per beat.
     [['1869', 'TRANSCONTINENTAL RAILROAD'], ['1876', 'TELEPHONE'], ['1879', 'INCANDESCENT LAMP'], ['1883', 'BROOKLYN BRIDGE']]
       .forEach(([y, l], i) => {
-        const a = seg(t, 0.8 + i * 0.45, 1.4 + i * 0.45);
+        const t0 = q.milestones + i * BEAT, a = seg(t, t0, t0 + 0.5);
         txt(y, 160, 160 + i * 30, { size: 15, align: 'left', rgb: C.bright, a });
         txt(l, 220, 160 + i * 30, { size: 15, align: 'left', track: 2, a: a * 0.85 });
       });
-    kineticWords(['STEEL.', 'RAIL.', 'LIGHT.'], 960, 890, t, [3.6, 4.1, 4.6],
+    kineticWords(['STEEL.', 'RAIL.', 'LIGHT.'], 960, 890, t, [q.steel, q.rail, q.light],
       { size: 70, track: 14, gap: 56, styles: [{}, {}, { rgb: C.white, glow: 34 }] });
   }
 
   function sFlight(t) {
+    const q = Q.flight;
     // Dune horizon and launching rail.
     pen(C.gold, 0.5, 1.2);
     polyP(sample(u => [lerp(80, 1840, u), 820 - Math.sin(u * 3.2) * 40 - Math.sin(u * 11) * 6], 80), seg(t, 0, 1.2), false, false);
-    const fly = seg(t, 3.0, 7.0, E.in);
+    const fly = seg(t, q.takeoff, q.takeoff + 4.0, E.in);
     const fx = 640 + fly * 900, fy = 640 - Math.pow(fly, 1.6) * 340;
     // 60-ft launching rail, in the same projection as the airframe
     const RP = flyerProj(640, 640, 1.2);
@@ -1344,8 +1368,8 @@
     lineP(...RP(0, -64, -320), ...RP(0, -64, 420), seg(t, 0.2, 1.0), false);
     for (let z = -300; z < 420; z += 30) lineP(...RP(-14, -64, z), ...RP(14, -64, z), seg(t, 0.4, 1.2), false);
     // Streamlines while airborne
-    if (t > 3) {
-      const a = seg(t, 3.0, 4.0);
+    if (t > q.takeoff) {
+      const a = seg(t, q.takeoff, q.takeoff + 0.6);
       pen(C.gold, 0.18 * a, 1);
       for (let k = 0; k < 12; k++) {
         const y = 260 + k * 38, off = ((t * 520 + k * 211) % 2200);
@@ -1359,15 +1383,20 @@
       polyP(sample(u => [640 + u * fly * 900, 640 - Math.pow(u * fly, 1.6) * 340 + 70], 40), 1, false, false);
       ctx.setLineDash([]);
     }
-    flyer(fx, fy, 1.2, seg(t, 0.2, 3.0, E.inOut), t);
+    flyer(fx, fy, 1.2, seg(t, 0.2, q.takeoff - 0.5, E.inOut), t);
     const wt = flyerProj(fx, fy, 1.2)(200, 45, 0);
-    annot('40 FT 4 IN WINGSPAN · 605 LB', wt[0], wt[1], wt[0] + 90, wt[1] - 90, seg(t, 1.6, 2.4) * (1 - seg(t, 3.0, 3.4)));
-    kinetic('WE TOOK TO THE AIR.', 960, 175, t, 3.4, { size: 70, track: 14, stagger: 0.035 });
+    annot('40 FT 4 IN WINGSPAN · 605 LB', wt[0], wt[1], wt[0] + 90, wt[1] - 90, seg(t, 1.6, 2.4) * (1 - seg(t, q.takeoff - 0.5, q.takeoff - 0.1)));
+    kinetic('WE TOOK TO THE AIR.', 960, 175, t, q.air, { size: 70, track: 14, stagger: 0.035 });
     txt('DECEMBER 17, 1903 · KILL DEVIL HILLS, NORTH CAROLINA', 160, 880, { size: 15, align: 'left', track: 3, a: seg(t, 0.8, 1.6) });
-    txt('12 SECONDS · 120 FEET · THE FIRST POWERED, CONTROLLED FLIGHT', 160, 910, { size: 15, align: 'left', track: 3, rgb: C.bright, a: seg(t, 4.4, 5.2) });
+    txt('12 SECONDS · 120 FEET · THE FIRST POWERED, CONTROLLED FLIGHT', 160, 910, { size: 15, align: 'left', track: 3, rgb: C.bright, a: seg(t, q.air + 1.0, q.air + 1.8) });
   }
 
   function sAbundance(t) {
+    const q = Q.abundance;
+    // The line indexes forward one station-step per beat, like clockwork:
+    // a quick eased move, then a pause while the next part goes on.
+    const b = t / BEAT;
+    const travel = 70 * (Math.floor(b) + E.inOut(clamp((b % 1) / 0.55)));
     // Conveyor
     pen(C.gold, 0.9, 1.6);
     lineP(100, 760, 1820, 760, seg(t, 0, 0.8), false);
@@ -1375,7 +1404,7 @@
     pen(C.gold, 0.5, 1);
     for (let x = 120; x < 1820; x += 40) {
       circleP(x, 772, 9, seg(t, 0.2, 1.0));
-      const a = t * 4 + x;
+      const a = travel / 9 + x; // rollers turn with the belt
       lineP(x, 772, x + Math.cos(a) * 9, 772 + Math.sin(a) * 9, seg(t, 0.4, 1.0), false);
     }
     // Stations
@@ -1389,36 +1418,39 @@
     });
     // Cars advance; each gains parts as it passes each station.
     for (let i = 0; i < 7; i++) {
-      const x = ((t * 140 + i * 300) % 2100) - 120;
+      const x = ((travel + i * 300) % 2100) - 120;
       const stage = clamp((x - 200) / 370, 0, 4) + (x > 1500 ? 1 : 0);
       modelT(x, 756, 1.15, Math.min(stage, 4), x / 34);
     }
-    kinetic('ABUNDANCE.', 960, 220, t, 1.6, { size: 128, track: 34, stagger: 0.06, dur: 1.0, glow: 30 });
-    // Ledger
-    const k = seg(t, 2.6, 5.6);
-    txt('CHASSIS ASSEMBLY', 300, 870, { size: 14, align: 'left', track: 3, a: seg(t, 2.4, 3.0) });
-    txt(`${fmt(lerp(750, 93, k))} MIN`, 300, 910, { size: 32, font: F.display, weight: 600, align: 'left', rgb: C.bright, a: seg(t, 2.4, 3.0), glow: 10 });
-    txt('MODEL T PRICE', 960, 870, { size: 14, track: 3, a: seg(t, 2.8, 3.4) });
-    txt(`$${fmt(lerp(850, 260, k))}`, 960, 910, { size: 32, font: F.display, weight: 600, rgb: C.bright, a: seg(t, 2.8, 3.4), glow: 10 });
-    txt('BUILT 1908–1927', 1620, 870, { size: 14, align: 'right', track: 3, a: seg(t, 3.2, 3.8) });
-    txt(`${fmt(lerp(0, 15000000, k))}`, 1620, 910, { size: 32, font: F.display, weight: 600, align: 'right', rgb: C.bright, a: seg(t, 3.2, 3.8), glow: 10 });
+    kinetic('ABUNDANCE.', 960, 220, t, q.title, { size: 128, track: 34, stagger: 0.06, dur: 1.0, glow: 30 });
+    // Ledger: the three counters enter on consecutive beats.
+    const k = seg(t, q.title + 0.5, q.title + 4.0);
+    const la = i => seg(t, q.title + 0.5 + i * BEAT, q.title + 1.0 + i * BEAT);
+    txt('CHASSIS ASSEMBLY', 300, 870, { size: 14, align: 'left', track: 3, a: la(0) });
+    txt(`${fmt(lerp(750, 93, k))} MIN`, 300, 910, { size: 32, font: F.display, weight: 600, align: 'left', rgb: C.bright, a: la(0), glow: 10 });
+    txt('MODEL T PRICE', 960, 870, { size: 14, track: 3, a: la(1) });
+    txt(`$${fmt(lerp(850, 260, k))}`, 960, 910, { size: 32, font: F.display, weight: 600, rgb: C.bright, a: la(1), glow: 10 });
+    txt('BUILT 1908–1927', 1620, 870, { size: 14, align: 'right', track: 3, a: la(2) });
+    txt(`${fmt(lerp(0, 15000000, k))}`, 1620, 910, { size: 32, font: F.display, weight: 600, align: 'right', rgb: C.bright, a: la(2), glow: 10 });
   }
 
   function sArsenal(t) {
-    // Three hard-cut shots; a brief flash marks each cut.
-    const shot = t < 2.6 ? 0 : t < 5.2 ? 1 : 2;
-    const ls = t - [0, 2.6, 5.2][shot];
+    const q = Q.arsenal;
+    // Three hard-cut shots on downbeats; a brief flash marks each cut.
+    const cuts = [0, q.shot2, q.shot3];
+    const shot = t < q.shot2 ? 0 : t < q.shot3 ? 1 : 2;
+    const ls = t - cuts[shot];
     if (shot === 0) {
-      factory(960, 760, 1.0, seg(ls, 0, 1.8), t);
-      txt('WILLOW RUN · ONE B-24 BOMBER OFF THE LINE EVERY HOUR', 960, 830, { size: 15, track: 3, a: seg(ls, 1.0, 1.6) });
+      factory(960, 760, 1.0, seg(ls, 0, 1.6), t);
+      txt('WILLOW RUN · ONE B-24 BOMBER OFF THE LINE EVERY HOUR', 960, 830, { size: 15, track: 3, a: seg(ls, 0.8, 1.4) });
     } else if (shot === 1) {
-      const n = Math.floor(seg(ls, 0, 2.2, E.inOut) * 216);
+      const n = Math.floor(seg(ls, 0, 1.8, E.inOut) * 216);
       for (let i = 0; i < 216; i++) {
         if (i >= n) break;
         const c = i % 24, r = Math.floor(i / 24);
         plane(390 + c * 50, 340 + r * 52, 0.5, i > n - 12 ? 1 : 0.6);
       }
-      txt(fmt(seg(ls, 0, 2.2, E.inOut) * 296000), 960, 850, { size: 64, font: F.display, weight: 700, rgb: C.red, glow: 16 });
+      txt(fmt(seg(ls, 0, 1.8, E.inOut) * 296000), 960, 850, { size: 64, font: F.display, weight: 700, rgb: C.red, glow: 16 });
       txt('MILITARY AIRCRAFT · 1940–1945', 960, 905, { size: 15, track: 4 });
     } else {
       libertyShip(960, 560, 1.15, seg(ls, 0, 1.5));
@@ -1428,27 +1460,29 @@
       txt('LIBERTY SHIPS · ONE LAUNCHED IN UNDER FIVE DAYS', 960, 905, { size: 15, track: 4 });
     }
     // Cut flash
-    const fl = Math.max(0, 1 - Math.abs(t - 2.6) / 0.12) + Math.max(0, 1 - Math.abs(t - 5.2) / 0.12);
+    const fl = Math.max(0, 1 - Math.abs(t - q.shot2) / 0.12) + Math.max(0, 1 - Math.abs(t - q.shot3) / 0.12);
     if (fl > 0) { ctx.fillStyle = col(C.white, 0.18 * fl); ctx.fillRect(0, 0, W, H); }
-    kinetic('WE BUILT THE ARSENAL.', 960, 175, t, 0.4, { size: 70, track: 14, stagger: 0.03 });
-    txt('THE ARSENAL OF DEMOCRACY · 1941 — 1945', 960, 245, { size: 15, track: 6, rgb: C.red, a: seg(t, 1.2, 2.0) });
+    kinetic('WE BUILT THE ARSENAL.', 960, 175, t, q.title, { size: 70, track: 14, stagger: 0.03 });
+    txt('THE ARSENAL OF DEMOCRACY · 1941 — 1945', 960, 245, { size: 15, track: 6, rgb: C.red, a: seg(t, q.title + 0.7, q.title + 1.5) });
   }
 
   function sProsperity(t) {
+    const q = Q.prosperity;
     const proj = makeProj(780, 610, 21);
     graticule(proj, 0.1, seg(t, 0, 1));
     pen(C.gold, 0.8, 1.4, 6);
     polyP(US_OUTLINE.map(([a, b]) => proj(a, b)), seg(t, 0, 1.2), false, false);
     noGlow();
+    // One corridor starts on every eighth note.
     INTERSTATES.forEach((route, i) => {
-      const q = seg(t, 0.8 + i * 0.22, 2.6 + i * 0.22, E.inOut);
+      const t0 = q.routes + (i * BEAT) / 2;
       pen(C.bright, 1, 2.2, 10);
-      polyP(route.map(([a, b]) => proj(a, b)), q, false);
+      polyP(route.map(([a, b]) => proj(a, b)), seg(t, t0, t0 + 1.8, E.inOut), false);
     });
     Object.values(CITY).forEach(([a, b], i) => { const [x, y] = proj(a, b); dot(x, y, 2.6, C.bright, seg(t, 2 + (i % 10) * 0.15, 3 + (i % 10) * 0.15)); });
-    const mi = seg(t, 0.8, 5.6, E.inOut);
-    txt(fmt(mi * 41000), 1590, 330, { size: 58, font: F.display, weight: 600, rgb: C.bright, glow: 12, a: seg(t, 0.8, 1.4) });
-    txt('MILES OF INTERSTATE · AUTHORIZED 1956', 1590, 380, { size: 13, track: 2, a: seg(t, 1.0, 1.6) });
+    const mi = seg(t, 0.5, 5.5, E.inOut);
+    txt(fmt(mi * 41000), 1590, 330, { size: 58, font: F.display, weight: 600, rgb: C.bright, glow: 12, a: seg(t, 0.5, 1.1) });
+    txt('MILES OF INTERSTATE · AUTHORIZED 1956', 1590, 380, { size: 13, track: 2, a: seg(t, 0.7, 1.3) });
     const c = chart({
       x: 1440, y: 500, w: 320, h: 190, p: seg(t, 2.0, 6.5, E.inOut),
       data: [[1947, 30], [1950, 31], [1955, 36.5], [1960, 41], [1965, 47], [1970, 55], [1973, 58]],
@@ -1456,12 +1490,13 @@
       title: 'REAL MEDIAN FAMILY INCOME',
     });
     txt(`×${(c.val / 30).toFixed(2)}`, c.tip[0] - 12, c.tip[1] - 22, { size: 16, align: 'right', rgb: C.bright, a: seg(t, 2.6, 3.0) });
-    txt('LIFE EXPECTANCY 65.9 → 70.8 · 1945–1970', 1600, 760, { size: 13, track: 1.5, a: seg(t, 4.6, 5.4) });
-    kinetic('PROSPERITY, AT SCALE.', 960, 175, t, 3.4, { size: 66, track: 12, stagger: 0.03 });
+    txt('LIFE EXPECTANCY 65.9 → 70.8 · 1945–1970', 1600, 760, { size: 13, track: 1.5, a: seg(t, q.title + 0.5, q.title + 1.2) });
+    kinetic('PROSPERITY, AT SCALE.', 960, 175, t, q.title, { size: 66, track: 12, stagger: 0.03 });
   }
 
   function sApollo(t) {
-    if (t < 6.4) {
+    const q = Q.cosmos;
+    if (t < q.earthrise) {
       // Launch umbilical tower
       pen(C.gold, 0.6, 1.2);
       const tx = 760, by = 920;
@@ -1470,14 +1505,14 @@
       for (let k = 0; k < 15; k++) { lineP(tx - 40, by - k * 41, tx, by - (k + 1) * 41, seg(t, 0.3 + k * 0.04, 0.8 + k * 0.04), false); }
       pen(C.gold, 0.8, 1.4);
       lineP(600, by, 1320, by, seg(t, 0, 0.8), false);
-      // Rocket: assemble, then lift.
-      const lift = seg(t, 4.2, 6.4, E.in);
+      // Rocket: assemble, ignite a beat early, lift off on the drop.
+      const lift = seg(t, q.liftoff, q.earthrise - 0.4, E.in);
       const ry = by - lift * 1300;
       // Exhaust plume and ground cloud
       ctx.save();
       ctx.beginPath(); ctx.rect(0, 0, W, by); ctx.clip();
-      if (t > 3.9) {
-        const ig = seg(t, 3.9, 4.3);
+      if (t > q.ignition) {
+        const ig = seg(t, q.ignition, q.liftoff);
         for (let k = 0; k < 16; k++) {
           const x = 960 + (k - 7.5) * 4.2;
           const len = (120 + 260 * ig) * (0.75 + 0.25 * Math.sin(t * 50 + k * 1.7));
@@ -1485,17 +1520,19 @@
           lineP(x, ry, 960 + (x - 960) * 3, ry + len, 1, false);
         }
         for (let k = 0; k < 10; k++) {
-          const u = seg(t, 4.0 + k * 0.05, 6.4);
+          const u = seg(t, q.ignition + 0.1 + k * 0.05, q.earthrise - 0.4);
           pen(C.gold, 0.5 * (1 - u * 0.6), 1);
           circleP(960 + (k - 4.5) * 34 * (0.4 + u), by - 10 - u * 30 - (k % 3) * 12, 14 + u * (40 + (k % 4) * 12));
         }
       }
       ctx.restore();
-      saturnV(960, ry, 0.95, seg(t, 0.1, 3.6, E.inOut), seg(t, 1.5, 3.8) * (1 - seg(t, 4.0, 4.4)));
-      txt(t < 4.2 ? `T−${Math.max(0, 4.2 - t).toFixed(1)}` : 'LIFTOFF', 1660, 800, { size: 30, font: F.display, weight: 600, align: 'right', rgb: C.bright, a: seg(t, 2.6, 3.0), glow: 10 });
-      txt('KENNEDY SPACE CENTER · JULY 16, 1969 · 09:32 EDT', 1660, 845, { size: 13, align: 'right', track: 2, a: seg(t, 2.8, 3.4) });
+      saturnV(960, ry, 0.95, seg(t, 0.1, q.ignition, E.inOut), seg(t, 1.5, q.ignition - 0.2) * (1 - seg(t, q.ignition, q.ignition + 0.4)));
+      // Countdown in real seconds, one tick per beat.
+      const left = Math.ceil((q.liftoff - t) / BEAT) * BEAT;
+      txt(t < q.liftoff ? `T−${left.toFixed(1)}` : 'LIFTOFF', 1660, 800, { size: 30, font: F.display, weight: 600, align: 'right', rgb: C.bright, a: seg(t, 0.1, 0.5), glow: 10 });
+      txt('KENNEDY SPACE CENTER · JULY 16, 1969 · 09:32 EDT', 1660, 845, { size: 13, align: 'right', track: 2, a: seg(t, 1.0, 1.6) });
     } else {
-      const u = t - 6.4;
+      const u = t - q.earthrise;
       // Earthrise over the lunar horizon.
       const mx = 960, my = 2500, mr = 1640;
       const ex = 1230, ey = lerp(1000, 560, seg(u, 0, 3.4, E.out));
@@ -1518,64 +1555,70 @@
       const lmy = my - Math.sqrt(mr * mr - Math.pow(620 - mx, 2)) + 40;
       lunarModule(620, lmy, 1.3, seg(u, 0.6, 2.0));
       annot('EAGLE · TRANQUILITY BASE', 620, lmy - 110, 470, lmy - 200, seg(u, 1.6, 2.2), 'right');
-      kinetic('WE LEFT THE EARTH.', 960, 175, u, 0.4, { size: 70, track: 14, stagger: 0.035 });
-      txt('JULY 20, 1969 · 20:17 UTC', 960, 245, { size: 15, track: 6, a: seg(u, 1.2, 2.0) });
+      kinetic('WE LEFT THE EARTH.', 960, 175, t, q.left, { size: 70, track: 14, stagger: 0.035 });
+      txt('JULY 20, 1969 · 20:17 UTC', 960, 245, { size: 15, track: 6, a: seg(u, 1.5, 2.2) });
     }
   }
 
   function sSilicon(t) {
-    chip(540, 560, 480, seg(t, 0.1, 4.0, E.inOut), t);
+    const q = Q.silicon;
+    chip(540, 560, 480, seg(t, 0.1, q.chip, E.inOut), t);
     const c = chart({
-      x: 1050, y: 330, w: 700, h: 420, p: seg(t, 1.4, 7.0, E.inOut), log: true,
+      x: 1050, y: 330, w: 700, h: 420, p: seg(t, 1.0, 7.0, E.inOut), log: true,
       data: [[1971, 2300], [1978, 29000], [1985, 275000], [1993, 3.1e6], [2000, 4.2e7], [2006, 2.9e8], [2012, 1.4e9], [2017, 1.9e10], [2022, 1.14e11], [2024, 2.08e11]],
       xr: [1970, 2026], yr: [1e3, 1e12],
       xticks: [[1971, '1971'], [1985, '1985'], [2000, '2000'], [2024, '2024']],
       yticks: [[1e3, '10³'], [1e6, '10⁶'], [1e9, '10⁹'], [1e12, '10¹²']],
       title: 'TRANSISTORS PER CHIP · LOG SCALE',
     });
-    txt(fmt(c.val), 1750, 830, { size: 50, font: F.display, weight: 600, align: 'right', rgb: C.bright, glow: 12, a: seg(t, 1.6, 2.2) });
-    txt(`TRANSISTORS · ${Math.round(c.xval)}`, 1750, 878, { size: 14, align: 'right', track: 3, a: seg(t, 1.6, 2.2) });
-    annot('INTEL 4004 · 1971', c.X(1971), c.Y(2300), c.X(1971) + 40, c.Y(2300) - 50, seg(t, 2.0, 2.6));
-    txt('1947 TRANSISTOR · 1958 INTEGRATED CIRCUIT · 1971 MICROPROCESSOR · 1991 WORLD WIDE WEB', 540, 880, { size: 12, track: 1, a: seg(t, 3.2, 4.0) * 0.8 });
-    kinetic('WE TAUGHT SAND TO THINK.', 960, 175, t, 3.8, { size: 66, track: 12, stagger: 0.03 });
+    txt(fmt(c.val), 1750, 830, { size: 50, font: F.display, weight: 600, align: 'right', rgb: C.bright, glow: 12, a: seg(t, 1.0, 1.6) });
+    txt(`TRANSISTORS · ${Math.round(c.xval)}`, 1750, 878, { size: 14, align: 'right', track: 3, a: seg(t, 1.0, 1.6) });
+    annot('INTEL 4004 · 1971', c.X(1971), c.Y(2300), c.X(1971) + 40, c.Y(2300) - 50, seg(t, 1.5, 2.1));
+    txt('1947 TRANSISTOR · 1958 INTEGRATED CIRCUIT · 1971 MICROPROCESSOR · 1991 WORLD WIDE WEB', 540, 880, { size: 12, track: 1, a: seg(t, 2.5, 3.3) * 0.8 });
+    kinetic('WE TAUGHT SAND TO THINK.', 960, 175, t, q.sand, { size: 66, track: 12, stagger: 0.03 });
   }
 
   function sModern(t) {
-    if (t < 5.6) {
-      const a = 1 - seg(t, 5.1, 5.6, E.linear);
+    const q = Q.innovation;
+    const cut = q.tools; // the three plates replace the tower on this beat
+    if (t < cut + 0.15) {
+      const a = 1 - seg(t, cut - 0.35, cut + 0.15, E.linear);
       ctx.save(); ctx.globalAlpha *= a;
-      const descend = seg(t, 0.3, 4.0, E.out);
+      // The booster settles a beat early; the arms close on the catch.
+      const descend = seg(t, 0.25, q.arms, E.out);
       const by = 940, restTop = -490;
       const boosterY = lerp(-1300, restTop, descend);
-      const close = seg(t, 3.6, 4.4, E.inOut);
-      catchTower(1180, by, 1.0, seg(t, 0, 2.0, E.inOut), boosterY, close, 1 - seg(t, 3.4, 4.0), t);
+      const close = seg(t, q.arms, q.catch, E.inOut);
+      catchTower(1180, by, 1.0, seg(t, 0, 2.0, E.inOut), boosterY, close, 1 - seg(t, q.arms - 0.25, q.arms + 0.15), t);
       const v = Math.max(0, (1 - descend)) * 1250;
-      txt(`${fmt(v)} KM/H`, 360, 640, { size: 46, font: F.display, weight: 600, align: 'left', rgb: C.bright, glow: 12, a: seg(t, 0.6, 1.2) });
-      txt('DESCENT VELOCITY', 362, 690, { size: 14, align: 'left', track: 3, a: seg(t, 0.6, 1.2) });
-      txt('OCTOBER 13, 2024 · STARBASE, TEXAS', 362, 740, { size: 14, align: 'left', track: 3, a: seg(t, 1.0, 1.6) * 0.85 });
-      txt('A 71-METRE BOOSTER, CAUGHT BY ITS OWN LAUNCH TOWER', 362, 768, { size: 14, align: 'left', track: 1.5, a: seg(t, 4.2, 4.8), rgb: C.bright });
-      kinetic('WE CAUGHT THE ROCKET.', 960, 175, t, 4.1, { size: 70, track: 14, stagger: 0.035 });
+      txt(`${fmt(v)} KM/H`, 360, 640, { size: 46, font: F.display, weight: 600, align: 'left', rgb: C.bright, glow: 12, a: seg(t, 0.5, 1.0) });
+      txt('DESCENT VELOCITY', 362, 690, { size: 14, align: 'left', track: 3, a: seg(t, 0.5, 1.0) });
+      txt('OCTOBER 13, 2024 · STARBASE, TEXAS', 362, 740, { size: 14, align: 'left', track: 3, a: seg(t, 0.9, 1.4) * 0.85 });
+      txt('A 71-METRE BOOSTER, CAUGHT BY ITS OWN LAUNCH TOWER', 362, 768, { size: 14, align: 'left', track: 1.5, a: seg(t, q.catch + 0.5, q.catch + 1.0), rgb: C.bright });
+      kinetic('WE CAUGHT THE ROCKET.', 960, 175, t, q.catch, { size: 70, track: 14, stagger: 0.035 });
       ctx.restore();
     }
-    if (t >= 5.3) {
-      const u = t - 5.3;
-      const a = seg(u, 0, 0.4, E.linear);
+    if (t >= cut - 0.35) {
+      const u = t - cut;
+      const a = seg(t, cut - 0.35, cut + 0.15, E.linear);
       ctx.save(); ctx.globalAlpha *= a;
+      // One plate per beat; each frame starts inking just ahead of its stab.
       [['COMPUTE', 'AI DATA CENTERS', (x, y, p) => racks(x, y, p, t)], ['LIFE', 'GENOMES READ & WRITTEN', (x, y, p) => helix(x, y, p, t)], ['ENERGY', 'FISSION · FUSION · SOLAR', (x, y, p) => atom(x, y, p, t)]]
         .forEach(([title, sub, draw], i) => {
-          const cx = 360 + i * 600, cy = 540, t0 = i * 0.25;
+          const cx = 360 + i * 600, cy = 540, t0 = i * BEAT;
           pen(C.gold, 0.7, 1.2);
-          rectP(cx - 260, cy - 200, 520, 400, seg(u, t0, t0 + 0.8));
-          txt(title, cx, cy - 240, { size: 26, font: F.display, weight: 600, track: 10, rgb: C.bright, a: seg(u, t0 + 0.2, t0 + 0.8), glow: 10 });
-          txt(sub, cx, cy + 235, { size: 13, track: 3, a: seg(u, t0 + 0.6, t0 + 1.2) });
-          draw(cx, cy, seg(u, t0 + 0.2, t0 + 1.8, E.inOut));
+          rectP(cx - 260, cy - 200, 520, 400, seg(u, t0 - 0.2, t0 + 0.6));
+          txt(title, cx, cy - 240, { size: 26, font: F.display, weight: 600, track: 10, rgb: C.bright, a: seg(u, t0 - 0.05, t0 + 0.35), glow: 10 });
+          txt(sub, cx, cy + 235, { size: 13, track: 3, a: seg(u, t0 + 0.5, t0 + 1.1) });
+          draw(cx, cy, seg(u, t0 + 0.1, t0 + 1.6, E.inOut));
         });
-      kinetic('THE TOOLS OF ABUNDANCE.', 960, 880, u, 0.9, { size: 52, track: 10, stagger: 0.025 });
+      kinetic('THE TOOLS OF ABUNDANCE.', 960, 880, t, q.abundance, { size: 52, track: 10, stagger: 0.025 });
       ctx.restore();
     }
   }
 
   function sFrontier(t) {
+    const q = Q.frontier;
     // Heliocentric: Earth → Mars transfer.
     const sx = 560, sy = 560;
     dot(sx, sy, 16 * seg(t, 0, 0.8), C.bright, 1, 40);
@@ -1601,13 +1644,13 @@
     const ell = th => { const rr = (A * (1 - ecc * ecc)) / (1 + ecc * Math.cos(th)); return [sx + Math.cos(a0 + th) * rr, sy + Math.sin(a0 + th) * rr]; };
     pen(C.bright, 0.9, 1.6, 8);
     ctx.setLineDash([6, 7]);
-    const tr = seg(t, 1.6, 6.0, E.inOut);
+    const tr = seg(t, 1.5, 5.5, E.inOut);
     const tip = polyP(sample(u => ell(u * Math.PI), 60), tr, false, false);
     ctx.setLineDash([]);
     if (tip && tr > 0) dot(tip[0], tip[1], 5, C.white, 1, 18);
     txt('TRANSFER ORBIT · ~259 DAYS', sx, sy + 44, { size: 13, track: 3, a: seg(t, 2.0, 2.8) });
     // Neural lattice: AI-augmented discovery, faint behind the chart.
-    const na = seg(t, 5.8, 7.0);
+    const na = seg(t, q.minds - 0.5, q.minds + 0.5);
     if (na > 0) {
       pen(C.gold, 0.18 * na, 1);
       NEURAL.forEach((n, i) => NEURAL.forEach((m, j) => {
@@ -1619,19 +1662,19 @@
     }
     // Energy chart: history solid, ambition dashed.
     const c = chart({
-      x: 1080, y: 330, w: 660, h: 400, p: seg(t, 0.8, 7.4, E.inOut), dashFrom: 2025,
+      x: 1080, y: 330, w: 660, h: 400, p: seg(t, 0.5, 7.0, E.inOut), dashFrom: 2025,
       data: [[1950, 330], [1960, 750], [1970, 1530], [1980, 2290], [1990, 3040], [2000, 3800], [2010, 4120], [2020, 4010], [2025, 4400],
         [2035, 6500], [2045, 9500], [2055, 13500], [2065, 18500], [2076, 25000]],
       xr: [1950, 2076], yr: [0, 26000], xticks: [[1950, '1950'], [2000, '2000'], [2025, 'NOW'], [2076, '2076']],
       yticks: [[0, '0'], [10000, '10k'], [20000, '20k']], title: 'U.S. ELECTRICITY · TWh / YEAR · HISTORY & AMBITION',
     });
-    const K = (Math.log10(lerp(1.9e13, 1e14, seg(t, 4.6, 7.6, E.inOut))) - 6) / 10;
+    const K = (Math.log10(lerp(1.9e13, 1e14, seg(t, 4.0, 7.0, E.inOut))) - 6) / 10;
     txt(`K = ${K.toFixed(3)}`, 1740, 800, { size: 40, font: F.display, weight: 600, align: 'right', rgb: C.bright, glow: 12, a: seg(t, 2.0, 2.6) });
     txt('CIVILIZATION ON THE KARDASHEV SCALE', 1740, 845, { size: 13, align: 'right', track: 2, a: seg(t, 2.0, 2.6) });
     if (c.xval > 2025) txt('PROJECTED', c.X(2050), c.Y(11500) - 26, { size: 12, track: 3, a: 0.8 });
-    kinetic('ABUNDANT ENERGY.', 960, 175, t, 0.8, { size: 66, track: 12, stagger: 0.03, out: 3.5 });
-    kinetic('NEW WORLDS.', 960, 175, t, 4.0, { size: 66, track: 12, stagger: 0.03, out: 5.9 });
-    kinetic('MINDS, AUGMENTED.', 960, 175, t, 6.4, { size: 66, track: 12, stagger: 0.03 });
+    kinetic('ABUNDANT ENERGY.', 960, 175, t, q.energy, { size: 66, track: 12, stagger: 0.03, out: q.worlds - 0.5 });
+    kinetic('NEW WORLDS.', 960, 175, t, q.worlds, { size: 66, track: 12, stagger: 0.03, out: q.minds - 0.5 });
+    kinetic('MINDS, AUGMENTED.', 960, 175, t, q.minds, { size: 66, track: 12, stagger: 0.03 });
   }
 
   // Montage: strongest symbols in reverse, timeline rewinding to 1776.
@@ -1643,11 +1686,10 @@
     ['1883', (p, t) => bridge(960, 560, 0.9, p, t)],
     ['1800', (p) => capitol(960, 820, 0.8, p)],
   ];
-  const MONTAGE_EACH = 1.05;
   function sRewind(t) {
-    const each = MONTAGE_EACH;
+    const q = Q.memory, each = q.each; // one symbol every two beats
     const i = Math.floor(t / each);
-    if (i < MONTAGE.length) {
+    if (i < MONTAGE.length && t < q.years) {
       const [year, draw] = MONTAGE[i];
       const lt = t - i * each;
       const a = seg(lt, 0, 0.12, E.linear) * (1 - seg(lt, each - 0.1, each, E.linear));
@@ -1657,52 +1699,53 @@
       ctx.restore();
       const fl = Math.max(0, 1 - lt / 0.1);
       if (fl > 0) { ctx.fillStyle = col(C.white, 0.12 * fl); ctx.fillRect(0, 0, W, H); }
-    } else {
-      const lt = t - MONTAGE.length * each;
+    } else if (t >= q.years) {
+      const lt = t - q.years;
       thirteen(960, 470, 270, 22, seg(lt, 0, 1.2, E.out));
-      kinetic('250 YEARS.', 960, 470, lt, 0.4, { size: 92, track: 22, stagger: 0.06, dur: 0.9, glow: 30 });
+      kinetic('250 YEARS.', 960, 470, lt, 0, { size: 92, track: 22, stagger: 0.06, dur: 0.9, glow: 30 });
       txt('1776 — 2026', 960, 800, { size: 22, track: 12, a: seg(lt, 1.0, 1.6) });
     }
   }
 
   function sFinal(t) {
-    const cx = 960, cy = 450;
-    seal(cx, cy, 250, seg(t, 0, 1.6), t, seg(t, 0.4, 2.4) * 1.3);
-    torch(cx, cy - 6, 0.94, seg(t, 0, 1.4), t, seg(t, 0.8, 1.6, E.out) * (1 + 0.25 * seg(t, 2.0, 4.0)));
-    kinetic(FINAL_WORD, cx, 830, t, 2.0, { size: 140, track: 40, stagger: 0.09, dur: 1.1, rgb: C.white, glow: 40 });
-    txt('THE BEST IS STILL AHEAD.', cx, 920, { size: 22, track: 12, a: seg(t, 3.6, 4.6) });
+    const q = Q.final, cx = 960, cy = 450;
+    seal(cx, cy, 250, seg(t, 0, 1.6), t, seg(t, 0.4, q.onward + 0.4) * 1.3);
+    torch(cx, cy - 6, 0.94, seg(t, 0, 1.4), t, seg(t, 0.8, 1.6, E.out) * (1 + 0.25 * seg(t, q.onward, q.onward + 2.0)));
+    kinetic(FINAL_WORD, cx, 830, t, q.onward, { size: 140, track: 40, stagger: 0.09, dur: 1.1, rgb: C.white, glow: 40 });
+    txt('THE BEST IS STILL AHEAD.', cx, 920, { size: 22, track: 12, a: seg(t, q.ahead, q.ahead + 1.0) });
   }
 
   // ===========================================================================
-  //  MASTER TIMELINE — edit durations here; everything downstream re-flows.
+  //  SCENES — the picture side of the master timeline. Lengths and cues live
+  //  in timeline.js; edit them there and everything downstream re-flows.
   // ===========================================================================
   const SCENES = [
-    { id: 'open',         chapter: null,                                dur: 8,  years: [1776, 1776], fadeIn: 0.6, fadeOut: 0.45, draw: sOpen },
-    { id: 'founding',     chapter: ['I', 'FOUNDING'],                   dur: 9,  years: [1776, 1776], draw: sFounding },
-    { id: 'constitution', chapter: ['II', 'CONSTITUTION'],              dur: 9,  years: [1787, 1791], draw: sConstitution },
-    { id: 'expansion',    chapter: ['III', 'EXPANSION'],                dur: 9,  years: [1791, 1853], draw: sExpansion,
-      yearFn: t => Math.max(1791, lerp(1783, 1853, seg(t, 0.9, 7.2))) },
-    { id: 'infra',        chapter: ['IV', 'INFRASTRUCTURE'],            dur: 8,  years: [1825, 1860], draw: sInfrastructure },
-    { id: 'industry',     chapter: ['V', 'INDUSTRY'],                   dur: 9,  years: [1869, 1900], draw: sIndustry },
-    { id: 'flight',       chapter: ['VI', 'FLIGHT'],                    dur: 7,  years: [1903, 1903], draw: sFlight },
-    { id: 'abundance',    chapter: ['VII', 'ABUNDANCE'],                dur: 7,  years: [1908, 1927], draw: sAbundance },
-    { id: 'arsenal',      chapter: ['VIII', 'ARSENAL'],                 dur: 8,  years: [1941, 1945], draw: sArsenal, accent: 'red' },
-    { id: 'prosperity',   chapter: ['IX', 'PROSPERITY'],                dur: 8,  years: [1950, 1970], draw: sProsperity },
-    { id: 'cosmos',       chapter: ['X', 'COSMOS'],                     dur: 10, years: [1969, 1969], draw: sApollo },
-    { id: 'silicon',      chapter: ['XI', 'SILICON'],                   dur: 9,  years: [1971, 2000], draw: sSilicon },
-    { id: 'innovation',   chapter: ['XII', 'ACCELERATED INNOVATION'],   dur: 9,  years: [2010, 2026], draw: sModern },
-    { id: 'frontier',     chapter: ['XIII', 'FRONTIER'],                dur: 9,  years: [2026, 2076], draw: sFrontier },
-    { id: 'memory',       chapter: ['XIV', 'TWO HUNDRED FIFTY YEARS'],  dur: 9,  years: [2076, 1776], draw: sRewind, fadeIn: 0.2,
+    { id: 'open',         chapter: null,                                years: [1776, 1776], fadeIn: 0.6, fadeOut: 0.45, draw: sOpen },
+    { id: 'founding',     chapter: ['I', 'FOUNDING'],                   years: [1776, 1776], draw: sFounding },
+    { id: 'constitution', chapter: ['II', 'CONSTITUTION'],              years: [1787, 1791], draw: sConstitution },
+    { id: 'expansion',    chapter: ['III', 'EXPANSION'],                years: [1791, 1853], draw: sExpansion,
+      yearFn: t => Math.max(1791, lerp(1783, 1853, seg(t, SWEEP[0], SWEEP[1]))) },
+    { id: 'infra',        chapter: ['IV', 'INFRASTRUCTURE'],            years: [1825, 1860], draw: sInfrastructure },
+    { id: 'industry',     chapter: ['V', 'INDUSTRY'],                   years: [1869, 1900], draw: sIndustry },
+    { id: 'flight',       chapter: ['VI', 'FLIGHT'],                    years: [1903, 1903], draw: sFlight },
+    { id: 'abundance',    chapter: ['VII', 'ABUNDANCE'],                years: [1908, 1927], draw: sAbundance },
+    { id: 'arsenal',      chapter: ['VIII', 'ARSENAL'],                 years: [1941, 1945], draw: sArsenal, accent: 'red' },
+    { id: 'prosperity',   chapter: ['IX', 'PROSPERITY'],                years: [1950, 1970], draw: sProsperity },
+    { id: 'cosmos',       chapter: ['X', 'COSMOS'],                     years: [1969, 1969], draw: sApollo },
+    { id: 'silicon',      chapter: ['XI', 'SILICON'],                   years: [1971, 2000], draw: sSilicon },
+    { id: 'innovation',   chapter: ['XII', 'ACCELERATED INNOVATION'],   years: [2010, 2026], draw: sModern },
+    { id: 'frontier',     chapter: ['XIII', 'FRONTIER'],                years: [2026, 2076], draw: sFrontier },
+    { id: 'memory',       chapter: ['XIV', 'TWO HUNDRED FIFTY YEARS'],  years: [2076, 1776], draw: sRewind, fadeIn: 0.2,
       yearFn: t => { // snap to each montage symbol's year
-        const ys = [2076, ...MONTAGE.map(m => +m[0]), 1776];
-        const i = Math.min(ys.length - 2, Math.floor(t / MONTAGE_EACH));
-        return lerp(ys[i], ys[i + 1], seg(t - i * MONTAGE_EACH, 0, 0.35));
+        const each = Q.memory.each, ys = [2076, ...MONTAGE.map(m => +m[0]), 1776];
+        const i = Math.min(ys.length - 2, Math.floor(t / each));
+        return lerp(ys[i], ys[i + 1], seg(t - i * each, 0, 0.35));
       } },
-    { id: 'final',        chapter: null,                                dur: 7,  years: [1776, 2076], fadeIn: 0.3, fadeOut: 1.2, draw: sFinal },
+    { id: 'final',        chapter: null,                                years: [1776, 2076], fadeIn: 0.3, fadeOut: 1.2, draw: sFinal },
   ];
-  let acc = 0;
-  SCENES.forEach(s => { s.start = acc; acc += s.dur; });
-  const DURATION = acc; // 135 s
+  if (SCENES.map(s => s.id).join() !== TL.SCENES.map(s => s.id).join()) throw new Error('liberty.js scenes do not match timeline.js');
+  SCENES.forEach(s => { s.start = TL.byId[s.id].start; s.dur = TL.byId[s.id].dur; s.kick = TL.byId[s.id].kick; });
+  const DURATION = TL.DURATION; // 135 s
 
   const sceneAt = T => SCENES.find(s => T >= s.start && T < s.start + s.dur) || SCENES[SCENES.length - 1];
   function yearAt(T) {
@@ -1767,13 +1810,49 @@
       pen(C.bright, 1, 2.4, 12);
       lineP(TLX0, TLY, tlx(y), TLY, 1, false);
       noGlow();
-      const mx = tlx(y);
-      ctx.fillStyle = col(C.bright, 1); ctx.shadowColor = col(C.bright, 0.9); ctx.shadowBlur = 14 * GLOW;
-      ctx.beginPath(); ctx.moveTo(mx, TLY - 8); ctx.lineTo(mx + 6, TLY); ctx.lineTo(mx, TLY + 8); ctx.lineTo(mx - 6, TLY); ctx.closePath(); ctx.fill();
+      // The marker pulses with the kick drum.
+      const mx = tlx(y), pz = beatPulse(T), r = 8 * (1 + 0.3 * pz);
+      ctx.fillStyle = col(C.bright, 1); ctx.shadowColor = col(C.bright, 0.9); ctx.shadowBlur = (14 + 18 * pz) * GLOW;
+      ctx.beginPath(); ctx.moveTo(mx, TLY - r); ctx.lineTo(mx + r * 0.75, TLY); ctx.lineTo(mx, TLY + r); ctx.lineTo(mx - r * 0.75, TLY); ctx.closePath(); ctx.fill();
       ctx.shadowBlur = 0;
       txt(String(Math.round(y)), mx, TLY - 22, { size: 15, font: F.display, weight: 600, rgb: C.bright, track: 2 });
       ctx.restore();
     }
+  }
+
+  /** 0..1 pulse on each kick of the score's groove (the `kick` ranges in timeline.js). */
+  function beatPulse(T) {
+    const s = sceneAt(T), b = (T - s.start) / BEAT, i = Math.floor(b);
+    for (const [b0, b1, style] of s.kick) {
+      if (i < b0 || i >= b1) continue;
+      if (style !== 'four' && i % 2) return 0; // half and heart: beats 1 and 3 only
+      return (style === 'heart' ? 0.4 : 1) * Math.exp(-((b - i) * BEAT) / 0.11);
+    }
+    return 0;
+  }
+
+  // Centre of each hit's bloom (timeline.js HITS); the default is the frame centre.
+  const BLOOM_AT = {
+    'open.title': [960, 760], 'constitution.ambition': [960, 262], 'industry.light': [1290, 890],
+    'flight.takeoff': [700, 620], 'cosmos.liftoff': [960, 900], 'innovation.catch': [1034, 470],
+    'memory.years': [960, 470], 'final.onward': [960, 700],
+  };
+  /** A brief warm bloom of light on the score's strongest hits. */
+  function bloom(T) {
+    TL.HITS.forEach(h => {
+      const dt = T - h.t;
+      if (dt < -0.04 || dt > 1.5) return;
+      const a = h.k * (dt < 0 ? 1 + dt / 0.04 : Math.exp(-dt / 0.32));
+      const [x, y] = BLOOM_AT[`${h.id}.${h.cue}`] || [W / 2, H / 2];
+      const g = ctx.createRadialGradient(x, y, 0, x, y, 900);
+      g.addColorStop(0, col(C.bright, 0.2 * a));
+      g.addColorStop(0.35, col(C.gold, 0.07 * a));
+      g.addColorStop(1, col(C.gold, 0));
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+    });
   }
 
   function grain(T) {
@@ -1800,7 +1879,8 @@
     if (C.stars) STARS.forEach(s => dot(s.x, s.y, s.r, C.white, s.a * (0.6 + 0.4 * Math.sin(T * 1.3 + s.ph))));
 
     const s = sceneAt(T), local = T - s.start;
-    const fi = s.fadeIn ?? 0.35, fo = s.fadeOut ?? 0.35;
+    // Short fades so each new scene lands right on its downbeat.
+    const fi = s.fadeIn ?? 0.2, fo = s.fadeOut ?? 0.3;
     const env = Math.min(fi ? clamp(local / fi) : 1, fo ? clamp((s.dur - local) / fo) : 1);
     ctx.save();
     ctx.globalAlpha = env;
@@ -1808,6 +1888,7 @@
     ctx.restore();
     ctx.shadowBlur = 0; ctx.setLineDash([]); ctx.letterSpacing = '0px';
 
+    if (THEME === 'black') bloom(T);
     chrome(T, s, local, env);
     grain(T);
     // Final fade to black
@@ -1826,37 +1907,70 @@
   ]).catch(() => {});
 
   window.LIBERTY = {
-    W, H, DURATION, renderAt,
+    W, H, DURATION, renderAt, timeline: TL,
     scenes: SCENES.map(s => ({ id: s.id, start: s.start, dur: s.dur, chapter: s.chapter && s.chapter[1] })),
     ready: fontsReady.then(() => true),
   };
   if (RENDER) { document.body.classList.add('render'); fontsReady.then(() => renderAt(0)); return; }
 
-  // Interactive preview
+  // Interactive preview. While playing, the score (audio/liberty-score.mp3, made by
+  // score.mjs) is the master clock, so picture and music stay locked together.
+  // Without the file the film still plays, silently, on the system clock.
   const ui = {
     play: document.getElementById('play'), clock: document.getElementById('clock'),
     scrub: document.getElementById('scrub'), jump: document.getElementById('jump'),
+    sound: document.getElementById('sound'), start: document.getElementById('start'),
   };
+  const audio = new Audio('audio/liberty-score.mp3');
+  audio.preload = 'auto';
+  window.LIBERTY.audio = audio;
+  window.LIBERTY.now = () => t;
+  let hasAudio = true;
+  audio.addEventListener('error', () => { hasAudio = false; ui.sound.disabled = true; ui.sound.textContent = 'NO SCORE'; });
   ui.scrub.max = DURATION;
   SCENES.forEach(s => {
     const o = document.createElement('option');
     o.value = s.start; o.textContent = `${s.start.toFixed(0).padStart(3, ' ')}s  ${s.chapter ? s.chapter[1] : s.id.toUpperCase()}`;
     ui.jump.appendChild(o);
   });
-  let playing = true, t = parseFloat(params.get('t') || '0'), last = null;
-  const toggle = () => { playing = !playing; ui.play.textContent = playing ? 'PAUSE' : 'PLAY'; };
+  const POSTER = Q.open.subtitle + 1.5; // the title card, shown until the first play
+  let playing = false, started = false, t = parseFloat(params.get('t') || '0'), last = null, anchor = null;
+  function play() {
+    if (t >= DURATION - 0.05) t = 0;
+    playing = started = true;
+    ui.play.textContent = 'PAUSE'; ui.start.hidden = true;
+    anchor = null;
+    if (hasAudio) { audio.currentTime = t; audio.play().catch(() => { hasAudio = false; }); }
+  }
+  function pause() { playing = false; ui.play.textContent = 'PLAY'; audio.pause(); }
+  function seek(nt) {
+    t = clamp(nt, 0, DURATION); started = true; ui.start.hidden = true; anchor = null;
+    if (hasAudio) audio.currentTime = t;
+  }
+  const toggle = () => (playing ? pause() : play());
   ui.play.onclick = toggle;
-  ui.scrub.oninput = () => { t = parseFloat(ui.scrub.value); };
-  ui.jump.onchange = () => { t = parseFloat(ui.jump.value); };
+  ui.start.onclick = play;
+  ui.sound.onclick = () => { audio.muted = !audio.muted; ui.sound.textContent = audio.muted ? 'SOUND OFF' : 'SOUND ON'; };
+  ui.scrub.oninput = () => seek(parseFloat(ui.scrub.value));
+  ui.jump.onchange = () => seek(parseFloat(ui.jump.value));
   addEventListener('keydown', e => {
     if (e.code === 'Space') { toggle(); e.preventDefault(); }
-    if (e.code === 'ArrowRight') t = Math.min(DURATION, t + 5);
-    if (e.code === 'ArrowLeft') t = Math.max(0, t - 5);
+    if (e.code === 'ArrowRight') seek(t + 5);
+    if (e.code === 'ArrowLeft') seek(t - 5);
   });
   function loop(now) {
-    if (last != null && playing) t = (t + (now - last) / 1000) % DURATION;
+    if (playing) {
+      if (hasAudio && !audio.paused) {
+        // currentTime advances in coarse steps; extrapolate between them for smooth motion.
+        // While the audio is still buffering, currentTime holds and the picture waits.
+        const at = audio.currentTime;
+        if (!anchor || at !== anchor.at) anchor = { at, now };
+        t = anchor.at + (audio.readyState >= 3 ? (now - anchor.now) / 1000 : 0);
+      } else if (last != null) t += (now - last) / 1000;
+      if (t >= DURATION || audio.ended) { t = DURATION; pause(); }
+    }
     last = now;
-    renderAt(t);
+    renderAt(started ? t : POSTER);
     ui.scrub.value = t;
     ui.clock.textContent = `${Math.floor(t / 60)}:${(t % 60).toFixed(1).padStart(4, '0')}`;
     requestAnimationFrame(loop);
