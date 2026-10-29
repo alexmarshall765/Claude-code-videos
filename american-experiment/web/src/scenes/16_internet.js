@@ -83,7 +83,7 @@ export default scene('16_internet', {
     if (mapA > 0) {
       outline(ctx, V, span(t, 0, 0.5) * mapA, { pen: { color: 'GOLD', alpha: 0.4 * mapA, width: 1.3 * lw }, tip: false });
       borders(ctx, V, mapA, { pen: { color: 'GOLD', alpha: 0.1 * mapA, width: lw } });
-      if (z < 1.2) schematic(s, V, mapA * span(t, 5.2, 5.6));
+      if (z < 1.2) schematic(s, V, mapA * span(t, 5.2, 5.6) * (1 - span(t, 11.4, 11.8))); // gone before the online count lands under it
       // The network: nodes and links appear as it doubles.
       const n = countAt(s, t), hit = s.count('nodes') > 0 ? s.hits('nodes')[s.count('nodes') - 1].t0 : 0;
       const grow = clamp((t - hit) / 0.5);

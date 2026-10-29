@@ -71,7 +71,7 @@ Italic entries are data cards set in monospace. The rest are statements set in C
   - Washington's attribution enters on 3.2.
   - OBS 06's quote and attribution run one beat into OBS 07's dissolve (allowed overlap ≤ 1 beat).
   - OBS 17's EV data card now enters with its statement.
-  - OBS 19's ATTENTION card exits on 123.1.
+  - OBS 19's ATTENTION card exits on 123.1, and MACHINES THAT WRITE, DRAW AND CODE. enters a beat later, on 123.2, so the two never cross.
 - **The countdown is one readout.** T-MINUS holds 5 s, and its digits change inside it. The 2 s hold applies to the readout, not to each digit.
 - **OBS 14 opens on a hard cut.** It was a wipe, but the cut on 81.1 makes the drums dropping out land on the image.
 - **OBS 02 tagline.** It stays a statement in the film's own voice. Lincoln's text reads "a new nation, conceived in Liberty", so it is not presented as a quote.

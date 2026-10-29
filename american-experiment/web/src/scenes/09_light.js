@@ -51,7 +51,8 @@ export default scene('09_light', {
     if (ma > 0) {
       outline(ctx, V, 1, { pen: { color: 'GOLD', alpha: 0.32 * ma, width: 1.4 * lw }, tip: false });
       borders(ctx, V, 1, { pen: { color: 'GOLD', alpha: 0.1 * ma, width: lw } });
-      if (z < 1.2) schematic(s, V, ma * (1 - span(t, 5.6, 6.0)), { x: V.x + V.w, y: V.y + V.h + 8 });
+      // Tagged once the lamp's label has gone, so the two never share the line.
+      if (z < 1.2) schematic(s, V, ma * span(t, 2.6, 2.9) * (1 - span(t, 5.6, 6.0)), { x: V.x + V.w, y: V.y + V.h + 8 });
     }
     // The lamp: exploded, lit on the downbeat, closing up; then it becomes the first node.
     const la = 1 - span(t, 1.9, 2.3);

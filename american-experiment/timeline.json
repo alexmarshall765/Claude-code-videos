@@ -384,7 +384,7 @@
         { "name": "compute_curve", "at": "7.1", "to": "end" },
         { "name": "data_2017", "at": "2.1", "to": "3.1", "card": { "text": "2017", "voice": "data", "fact": "transformer_2017" } },
         { "name": "card_attention", "at": "2.1", "to": "3.1", "card": { "text": "ATTENTION.", "voice": "statement" } },
-        { "name": "card_machines", "at": "3.1", "to": "4.4", "card": { "text": "MACHINES THAT WRITE, DRAW AND CODE.", "voice": "statement" } },
+        { "name": "card_machines", "at": "3.2", "to": "4.4", "card": { "text": "MACHINES THAT WRITE, DRAW AND CODE.", "voice": "statement" } },
         { "name": "card_think", "at": "5.1", "to": "7.1", "card": { "text": "THEN WE TAUGHT IT TO THINK.", "voice": "statement" } },
         { "name": "data_compute", "at": "7.1", "to": "end", "card": { "text": "TRAINING COMPUTE ≈ 4–5× PER YEAR", "voice": "data", "fact": "ai_compute_growth" } }
       ]
