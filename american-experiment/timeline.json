@@ -432,7 +432,7 @@
       "years": [{ "at": "1.1", "year": 2026 }, { "at": "4.3", "year": 1776 }, { "at": "5.1", "year": 2026 }],
       "events": [],
       "cues": [
-        { "name": "rewind", "at": "1.1", "every": "beat", "count": 15, "beats": 1, "audio": { "type": "reverse_hit", "gain": -11 } },
+        { "name": "rewind", "at": ["1.1", "1.2", "1.3", "1.4", "2.1", "2.2", "2.3", "2.4", "3.1", "3.2", "3.3", "3.4", "4.1", "4.2", "4.3", "4.3.3"], "beats": 0.5, "audio": { "type": "reverse_hit", "gain": -11 } },
         { "name": "rewind_sweep", "at": "1.1", "to": "4.4", "audio": { "type": "tape_rewind", "gain": -16 } },
         { "name": "black", "at": "4.4", "beats": 1 },
         { "name": "final_chord", "at": "5.1", "to": "8.3", "audio": { "type": "impact", "size": "huge", "gain": -4 } },

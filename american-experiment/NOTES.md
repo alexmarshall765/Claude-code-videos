@@ -1,34 +1,36 @@
 # Notes
 
-## Where the slice stands
+## Where the film stands
 
-The slice includes:
+All 22 observations are drawn, each in its own module in `web/src/scenes/`. The shared drawing modules arrived first, so later scenes could reuse them:
 
-- **Engine.** Frame clock, camera with parallax, layers, bloom, transitions (cut, dissolve, wipe), the text log for checks, and seeded randomness.
-- **HUD.** Marker, OBS line, and the ruler with its damped cursor, rolling counter and event constellation.
-- **Score.** The full 4:56 synthesized track, with stems.
-- **Pipeline.** Capture, encode and checks.
-- **Scenes.** OBS 01, 02 and 14, drawn in full.
+- **Map** (`draw/map.js`): us-atlas states baked by `tools/build_map.mjs` into one Albers frame and grouped into the historical acquisitions. Labelled SCHEMATIC. Used by OBS 05, 08, 09, 12, 13, 16, 17 and 22.
+- **Charts** (`draw/charts.js`): axes that draw on, and curves that grow from their first point with a tip that readouts can ride. Used by OBS 08, 13, 15, 19 and 21.
+- **Gears, wheels and catenaries** (`draw/gears.js`). Used by OBS 06, 08, 09, 11, 17 and 19.
+- **Icons and machines**: the quill, seal, lamp and transistor (`draw/icons.js`), the 1903 Flyer (`draw/flyer.js`) and the assembly line (`draw/conveyor.js`).
 
-The other 19 observations play as slates on the real timeline, so the film can be watched end to end against the music.
+The coda replays the film's sixteen symbols through the same drawing code their observations used.
 
-## Next: the remaining 19 observations
+`make check` covers:
 
-Build order, chosen so that shared drawing tools arrive first:
-
-1. **Map module** (`draw/map.js`): us-atlas states, simplified, grouped into the historical acquisitions, labelled SCHEMATIC. Shared by OBS 05, 09, 13 and 17.
-2. **Charts** (`draw/charts.js`): progressive curves, log axes and tips that stay in sync with counters. Shared by OBS 08, 13, 15, 19 and 21.
-3. **Gears and catenaries** (`draw/gears.js`, `draw/catenary.js`) for OBS 06, 08, 11 and 17. The motif circle also needs its gear and wheel forms.
-4. Then the scenes in film order. Before each one is drawn, verify its rows in `data/facts.json`; `make check` refuses a built scene whose facts are unverified.
+- timing, card rules and sourcing
+- the palette, including the four-scene CRIMSON limit
+- fonts
+- the score's format, length and loudness
+- text size, safe area and the 2 s hold on sampled frames
+- byte-identical determinism
 
 ## What I would improve next
 
 - **Audio sync verification for an external track.** The brief's optional path asks for beat tracking with librosa and per-section drift reports. Add `audio/verify_external.py` once there is a track to test.
-- **Motion blur on the fast moves.** Render the launch and the hand-off at 240 fps and blend groups of four frames.
+- **Motion blur on the fast moves.** Render the launch, the hand-off and the coda's rewind at 240 fps and blend groups of four frames.
 - **The hand-off from climb to diagram.** It reads, but the moment when the pad has gone and the globe is only starting to draw is a little empty. A true line morph would close that gap: the ground line curling up into the globe.
+- **Hidden lines in the hand-built 3D.** OBS 21's cutaway reactor and the domes and habitats on the Moon and Mars use depth-dimmed lines, not true hidden-line removal. A per-segment depth test would clean up the places where far lines cross near ones.
+- **A viewing test for the fast passages.** OBS 12's slams and OBS 22's rewind give each symbol half a beat. Every frame is legible as a still. A test with fresh eyes should confirm that each symbol also reads in motion.
 - **Score mixing.** The synth is balanced by numbers: section loudness tracks the energy map, impacts land within a millisecond, and the keys check out. It has not been tuned by ear. A listening pass should set the supersaw brightness, the snare-roll build in OBS 10, and the choir level in the finale.
-- **Vertical social cut.** `?aspect=9x16` camera presets and the 60-second edit from OBS 02, 08, 10, 14, 17, 19, 21 and 22, once those scenes exist.
-- **Render speed.** Capture pulls PNG bytes from the canvas into FFmpeg's image2pipe. That runs at about 7 fps with three pages on a 4-core machine: the slice takes 6 minutes and the full film about 40. Posting raw RGBA from the page was measured and was four times slower. The remaining cost is PNG compression of the grain and dither layers, so the next speed-up is to add the dither in FFmpeg and keep the canvas output compressible.
+- **Vertical social cut.** `?aspect=9x16` camera presets and the 60-second edit from OBS 02, 08, 10, 14, 17, 19, 21 and 22.
+- **Render speed.** Capture pulls PNG bytes from the canvas into FFmpeg's image2pipe at about 7 fps with three pages on a 4-core machine, so the full film takes about 42 minutes. Posting raw RGBA from the page was measured and was four times slower. The remaining cost is PNG compression of the grain and dither layers, so the next speed-up is to add the dither in FFmpeg and keep the canvas output compressible.
+- **Text-hold resolution.** The 2 s hold check samples every 15th frame, so it only fails runs that must be shorter than 2 s (span plus two samples). Sampling every frame around each card's exit would make the bound exact.
 
 ## External-track prompt (from the brief)
 

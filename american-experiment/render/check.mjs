@@ -143,14 +143,35 @@ const badFonts = fonts.filter(f => f.status !== 'loaded');
 badFonts.length ? fail(`fonts not loaded: ${badFonts.map(f => f.family + ' ' + f.weight).join(', ')}`) : ok(`${fonts.length} font faces loaded`);
 
 const stride = Number(opt('stride', 15));
-const sizeBad = new Map(), safeBad = new Map(), factBad = new Map(), factUnverified = new Map();
+const sizeBad = new Map(), safeBad = new Map(), factBad = new Map(), factUnverified = new Map(), holdBad = new Map();
 let texts = 0;
+// Holds: every text stays up for at least 2 s. A run of samples spanning `span` frames
+// was visible for less than span + 2·stride, so only runs that must be short are failed.
+// Live readouts keep one key while their digits change; the ruler and the countdown are
+// readouts by design.
+const runs = new Map();
+const holdKey = tx => `${tx.voice}|${tx.text.replace(/\d[\d,.]*/g, '#')}`;
+const holdExempt = tx => [].concat(tx.fact || []).some(f => f === 'structural:ruler' || f === 'structural:countdown');
+const closeRun = (key, r) => {
+  const span = (r.last - r.first) / tl.fps;
+  if (span + (2 * stride) / tl.fps < 2 - 1e-9 && !holdBad.has(key)) holdBad.set(key, `≤ ${(span + (2 * stride) / tl.fps).toFixed(2)} s from f${r.first}`);
+};
 const t0 = Date.now();
 for (let n = 0; n < tl.frames; n += stride) {
   const res = await page.evaluate(k => { const r = window.renderFrame(k); return r.texts; }, n);
+  const seen = new Set();
   for (const tx of res) {
     if (tx.alpha < 0.05) continue;
     texts++;
+    if (!holdExempt(tx)) {
+      const key = holdKey(tx);
+      if (!seen.has(key)) {
+        seen.add(key);
+        const r = runs.get(key);
+        if (r && n - r.last <= stride) r.last = n;
+        else { if (r) closeRun(key, r); runs.set(key, { first: n, last: n }); }
+      }
+    }
     const key = `${tx.text}`;
     const [x0, y0, x1, y1] = tx.box;
     if (tx.px < 24 - 0.5) sizeBad.set(key, `${tx.px.toFixed(1)} px at f${n}`);
@@ -161,12 +182,15 @@ for (let n = 0; n < tl.frames; n += stride) {
   if (n % (stride * 200) === 0) process.stdout.write(`\r    sampled frame ${n}/${tl.frames}   `);
 }
 process.stdout.write('\r' + ' '.repeat(60) + '\r');
+// A text still up at the last frame ends with the film, so its run is not cut short.
+for (const [key, r] of runs) if (r.last + stride < tl.frames) closeRun(key, r);
 const report = (m, label) => { if (!m.size) return true; fail(`${label}: ${[...m].slice(0, 6).map(([k, v]) => `"${k}" ${v}`).join('; ')}${m.size > 6 ? ` (+${m.size - 6} more)` : ''}`); return false; };
 const a1 = report(sizeBad, 'text smaller than 24 px');
 const a2 = report(safeBad, 'text outside the 90 % safe area');
 const a3 = report(factBad, 'numbers on screen without a fact');
 const a4 = report(factUnverified, 'text citing an unverified fact');
-if (a1 && a2 && a3 && a4) ok(`${texts} text draws in ${Math.ceil(tl.frames / stride)} sampled frames: all ≥ 24 px, inside the safe area, every number sourced and verified (${((Date.now() - t0) / 1000).toFixed(0)} s)`);
+const a5 = report(holdBad, 'text held for less than 2 s');
+if (a1 && a2 && a3 && a4 && a5) ok(`${texts} text draws in ${Math.ceil(tl.frames / stride)} sampled frames: all ≥ 24 px, inside the safe area, held at least 2 s, every number sourced and verified (${((Date.now() - t0) / 1000).toFixed(0)} s)`);
 
 // Determinism: frame 9000 from two separate pages must be byte-identical.
 const page2 = await openFilm(ctx);

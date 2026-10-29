@@ -21,9 +21,10 @@ import rockets from './18_rockets.js';
 import ai from './19_ai.js';
 import twoFifty from './20_250.js';
 import future from './21_future.js';
+import coda from './22_coda.js';
 import { placeholder } from './placeholder.js';
 
-const built = [prologue, title, founding, constitution, expansion, roads, liberty, steel, light, flight, assembly, arsenal, boom, apollo, silicon, internet, car, rockets, ai, twoFifty, future];
+const built = [prologue, title, founding, constitution, expansion, roads, liberty, steel, light, flight, assembly, arsenal, boom, apollo, silicon, internet, car, rockets, ai, twoFifty, future, coda];
 
 export function sceneModules(timeline) {
   const byId = Object.fromEntries(built.map(m => [m.id, m]));

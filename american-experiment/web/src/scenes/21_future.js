@@ -1,7 +1,7 @@
 // OBS 21 · ACT V — THE OPEN FUTURE, 2026–. Four two-bar plates, one per plate hit, while
 // the ruler runs on past 2026 as a dashed NEXT (the HUD draws that from Act V on). The
 // circle carries across the plates: plasma ring → loop → Moon → Mars limb → gauge dial.
-//   133.1  ABUNDANT ENERGY: a tokamak in section, its plasma lit and its field line
+//   133.1  ABUNDANT ENERGY: a tokamak cut away, its plasma lit and its field line
 //          flowing; energy per person flattening for 50 years, then bending up past 2026
 //   135.1  DISCOVERY AT MACHINE SPEED: HYPOTHESIS → EXPERIMENT → RESULT as a loop that
 //          spins faster, and fills with runners, once a machine joins it at the centre
@@ -33,42 +33,35 @@ function morphRing(ctx, t, A, B, t0, t1, o = {}) {
   glow(ctx, m('x'), m('y') - m('ry'), 50, 'GOLD_HOT', 0.25 * Math.sin(Math.PI * e));
 }
 
-/** Stroke a polyline of [x, y, facing] points: facing runs bright, the far side dim. */
-function strokeFaced(g, pts, p, o) {
-  const n = Math.max(2, Math.ceil(pts.length * clamp(p)));
-  let run = [], side = null;
-  const flush = () => {
-    if (run.length > 1) stroke(g, run, 1, { pen: { color: side ? (o.color || 'GOLD') : 'GOLD', alpha: (side ? o.front : o.back) * (o.alpha ?? 1), width: side ? o.width : o.width * 0.6 }, tip: false });
-  };
-  for (let i = 0; i < n; i++) {
-    const f = pts[i][2] > 0;
-    if (side === null) side = f;
-    if (f !== side) { run.push(pts[i]); flush(); run = [pts[i]]; side = f; } else run.push(pts[i]);
-  }
-  flush();
-}
-
 // ---------------------------------------------------------------------------
-// Plate I · energy. Torus space: X across, Y toward the viewer, Z up; seen from 31° above.
+// Plate I · energy. A tokamak cut away along its vertical plane: the far half in
+// perspective (X across, Y toward the viewer, Z up, seen from 31° above) and the two cut
+// faces square on, each showing the poloidal section: field coil, vessel wall, the nested
+// D-shaped surfaces of the plasma, and the divertor under it.
 // ---------------------------------------------------------------------------
-const TK = { x: 600, y: 620, R: 196, a: 72 };
+const TK = { x: 600, y: 610, R: 196, a: 66 };
 const SE = Math.sin(0.55), CE = Math.cos(0.55);
 const TP = (X, Y, Z) => [TK.x + X, TK.y + Y * SE - Z * CE];
-/** Point on a torus of minor radius a, with how squarely its surface faces the viewer. */
-const torusPt = (u, v, a = TK.a) => {
-  const rho = TK.R + a * Math.cos(v);
-  return [...TP(rho * Math.cos(u), rho * Math.sin(u), a * Math.sin(v)), Math.cos(v) * Math.sin(u) * CE + Math.sin(v) * SE];
-};
-const VESSEL = [0, 1, 2, 3, 4, 5].map(k => Array.from({ length: 121 }, (_, i) => torusPt((i / 120) * TAU, (k / 6) * TAU + 0.3)));
-// Sixteen D-shaped field coils, straight leg inboard
-const COILS = Array.from({ length: 16 }, (_, j) => {
-  const u = ((j + 0.5) / 16) * TAU, rin = TK.R - 1.42 * TK.a, w = 2.84 * TK.a, h = 1.5 * TK.a, pts = [];
-  for (let i = 0; i <= 32; i++) { const th = -Math.PI / 2 + (i / 32) * Math.PI; pts.push([rin + w * Math.cos(th), h * Math.sin(th)]); }
-  pts.push([rin, -h]);
-  return { front: Math.sin(u), pts: pts.map(([r, z]) => TP(r * Math.cos(u), r * Math.sin(u), z)) };
-});
-const CORE = Array.from({ length: 121 }, (_, i) => { const u = (i / 120) * TAU; return [...TP(TK.R * Math.cos(u), TK.R * Math.sin(u), 0), Math.sin(u)]; });
-const SOL = { r: 40, z: 1.32 * TK.a };
+/** Point of a D-shaped section (minor radius a, elongation k, triangularity d) as [R, Z]. */
+const dAt = (a, k, d, shift, th) => [TK.R + shift + a * Math.cos(th + d * Math.sin(th)), k * a * Math.sin(th)];
+const dShape = (a, k, d, shift = 0, n = 72) => Array.from({ length: n + 1 }, (_, i) => dAt(a, k, d, shift, (i / n) * TAU));
+/** Flux surface r (0 at the magnetic axis, 1 at the edge), with its outward shift. */
+const fluxAt = (r, th) => dAt(TK.a * r, 1.7, 0.33 * r, 0.12 * TK.a * (1 - r * r), th);
+const FLUX = [1, 0.76, 0.52, 0.28].map(r => Array.from({ length: 73 }, (_, i) => fluxAt(r, (i / 72) * TAU)));
+const AXIS = fluxAt(0, 0);
+const WALL = [dShape(TK.a * 1.2, 1.64, 0.3), dShape(TK.a * 1.34, 1.6, 0.3)];
+const COIL = dShape(TK.a * 1.9, 1.48, 0.42, -0.08 * TK.a);
+const PF = [[2.08, 1.02], [2.08, -1.02], [0.95, 2.12], [0.95, -2.12]].map(([dr, z]) => [TK.R + dr * TK.a, z * TK.a]);
+const DIVERTOR = [[[-0.3, -1.68], [-0.66, -2.2]], [[0.2, -1.68], [0.5, -2.2]]].map(leg => leg.map(([dr, z]) => [TK.R + dr * TK.a, z * TK.a]));
+const SOL = { w: 34, z: 1.55 * TK.a };
+/** A section point on the left (side −1) or right (+1) cut face. */
+const onFace = (side, [R, Z]) => TP(side * R, 0, Z);
+/** A section point revolved to toroidal angle u (the far half is u = π … 2π). */
+const revolve = (u, [R, Z]) => TP(R * Math.cos(u), R * Math.sin(u), Z);
+const farRing = q => Array.from({ length: 61 }, (_, i) => revolve(Math.PI * (1 + i / 60), q));
+const FAR_LINES = [0, 18, 36, 54].map(i => farRing(WALL[1][i])).concat([farRing(COIL[18]), farRing(COIL[54])]);
+const FAR_COILS = [1, 2, 3, 4, 5].map(k => COIL.map(q => revolve(Math.PI * (1 + k / 6), q)));
+const FAR_PLASMA = [farRing(FLUX[0][18]), farRing(FLUX[0][54]), farRing(FLUX[0][0])];
 
 // U.S. primary energy per person, normalised to its 1979 peak (EIA Annual Energy Review,
 // Appendix E for 1850–1945, Monthly Energy Review table 1.7 after). Drawn as a schematic:
@@ -81,57 +74,73 @@ function plateEnergy(ctx, s, t) {
   const A = plateOut(t, 0);
   if (A <= 0) return;
   const p = span(t, 0, 1.1);
+  const pen = (c, a, w) => ({ pen: { color: c, alpha: a, width: w }, tip: false });
   ctx.globalAlpha = A;
-  // Far coils and the far side of the vessel first
-  COILS.forEach((c, j) => {
-    if (c.front > 0.05) return;
-    stroke(ctx, c.pts, sub(p, (j / 16) * 0.45, (j / 16) * 0.45 + 0.4), { pen: { color: 'GOLD', alpha: 0.26, width: 1.2 }, tip: false });
-  });
-  VESSEL.forEach((ring, i) => strokeFaced(ctx, ring, sub(p, 0.15 + i * 0.06, 0.6 + i * 0.06), { front: 0.75, back: 0.16, width: 1.3 }));
-  // Central solenoid in the hole
-  const sp = sub(p, 0.3, 0.75);
-  if (sp > 0) {
-    for (let k = 0; k <= 6; k++) {
-      const z = lerp(-SOL.z, SOL.z, k / 6), pts = [];
-      for (let i = 0; i <= 40; i++) { const u = (i / 40) * TAU; pts.push([...TP(SOL.r * Math.cos(u), SOL.r * Math.sin(u), z), k === 6 ? 1 : Math.sin(u)]); }
-      strokeFaced(ctx, pts, sp, { front: k === 0 || k === 6 ? 0.9 : 0.5, back: 0.12, width: 1.2 });
-    }
-    for (const sx of [-1, 1]) stroke(ctx, [TP(sx * SOL.r, 0, -SOL.z), TP(sx * SOL.r, 0, SOL.z)], sp, { pen: { color: 'GOLD', alpha: 0.9, width: 1.5 }, tip: false });
+  // The far half, in perspective
+  FAR_COILS.forEach((c, k) => stroke(ctx, c, sub(p, k * 0.05, 0.4 + k * 0.05), pen('GOLD', 0.28, 1.2)));
+  FAR_LINES.forEach((ln, i) => stroke(ctx, ln, sub(p, 0.1 + i * 0.04, 0.5 + i * 0.04), pen('GOLD', i < 4 ? 0.45 : 0.3, 1.1)));
+  // Central solenoid in section, with its windings
+  const sp = sub(p, 0.3, 0.65);
+  const sol = [TP(-SOL.w, 0, SOL.z), TP(SOL.w, 0, SOL.z), TP(SOL.w, 0, -SOL.z), TP(-SOL.w, 0, -SOL.z)];
+  stroke(ctx, sol, sp, { ...pen('GOLD', 0.95, 1.8), closed: true });
+  if (sp >= 1) hatch(ctx, sol, 1, { angle: 0, gap: 7, alpha: 0.4 });
+  stroke(ctx, farRing([SOL.w, SOL.z]), sp, pen('GOLD', 0.6, 1.1));
+  // The two cut faces: coil, wall, poloidal-field coils, divertor
+  for (const side of [-1, 1]) {
+    const F = q => onFace(side, q);
+    stroke(ctx, COIL.map(F), sub(p, 0.05, 0.4), pen('GOLD', 0.95, 2.4));
+    stroke(ctx, WALL[0].map(F), sub(p, 0.2, 0.55), pen('GOLD_HOT', 0.95, 2));
+    stroke(ctx, WALL[1].map(F), sub(p, 0.25, 0.6), pen('GOLD', 0.7, 1.2));
+    PF.forEach((q, k) => {
+      const [x, y] = F(q), h = 0.17 * TK.a, sq = [[x - h, y - h], [x + h, y - h], [x + h, y + h], [x - h, y + h]];
+      const qq = sub(p, 0.4 + k * 0.05, 0.6 + k * 0.05);
+      stroke(ctx, sq, qq, { ...pen('GOLD', 0.95, 1.6), closed: true });
+      if (qq >= 1) hatch(ctx, sq, 1, { angle: Math.PI / 4, gap: 4, alpha: 0.6 });
+    });
+    DIVERTOR.forEach(([a, b]) => {
+      stroke(ctx, [F(a), F(b)], sub(p, 0.55, 0.8), pen('GOLD', 0.8, 1.4));
+      const [bx, by] = F(b);
+      stroke(ctx, [[bx - 12, by], [bx + 12, by]], sub(p, 0.7, 0.85), pen('GOLD_HOT', 1, 3));
+    });
   }
-  // The plasma: a hot ring with a field line winding round it, flowing
+  // The plasma: nested surfaces light from the axis outward and the particles circulate
   const ig = t >= 0.9 ? ease.expoOut(clamp((t - 0.9) / 0.35)) : 0;
   if (ig > 0) {
-    strokeFaced(ctx, CORE, 1, { color: 'GOLD_HOT', front: 0.18 * ig, back: 0.08 * ig, width: 16 });
-    strokeFaced(ctx, CORE, 1, { color: 'GOLD_HOT', front: 0.95 * ig, back: 0.35 * ig, width: 2.6 });
+    const flash = Math.exp(-(t - 0.9) / 0.18);
+    FAR_PLASMA.forEach((ln, i) => stroke(ctx, ln, ig, pen('GOLD_HOT', i === 2 ? 0.75 : 0.35, i === 2 ? 2 : 1.2)));
+    stroke(ctx, farRing(AXIS), 1, pen('GOLD_HOT', 0.14 * ig, 16));
     const phase = -t * 5, helix = [];
-    for (let i = 0; i <= 480; i++) { const u = (i / 480) * TAU; helix.push(torusPt(u, 4 * u + phase, 0.52 * TK.a)); }
-    strokeFaced(ctx, helix, 1, { color: 'GOLD_HOT', front: 0.75 * ig, back: 0.14 * ig, width: 1.3 });
-    for (let k = 0; k < 30; k++) {
-      const [x, y, f] = torusPt((k / 30) * TAU + t * 1.8, k * 2.4 + t * 7, 0.3 * TK.a);
-      dot(ctx, x, y, f > 0 ? 2.4 : 1.6, 'GOLD_HOT', (f > 0 ? 0.95 : 0.35) * ig);
+    for (let i = 0; i <= 240; i++) { const u = Math.PI * (1 + i / 240); helix.push(revolve(u, fluxAt(0.6, 6 * u + phase))); }
+    stroke(ctx, helix, ig, pen('GOLD_HOT', 0.5, 1.2));
+    for (const side of [-1, 1]) {
+      const F = q => onFace(side, q);
+      FLUX.forEach((sf, k) => stroke(ctx, sf.map(F), sub(ig, (3 - k) * 0.12, (3 - k) * 0.12 + 0.5), pen('GOLD_HOT', 0.5 + 0.17 * k, 1.3 + 0.25 * k)));
+      const [ax, ay] = F(AXIS);
+      glow(ctx, ax, ay, 80, 'GOLD_HOT', 0.35 * ig + 0.6 * flash);
+      dot(ctx, ax, ay, 3.5, 'WHITE', ig);
+      for (const r of [0.4, 0.64, 0.88]) for (let j = 0; j < 5; j++) {
+        const [x, y] = F(fluxAt(r, (j / 5) * TAU + side * t * (2.6 - r)));
+        dot(ctx, x, y, 2.2, 'GOLD_HOT', 0.9 * ig);
+      }
     }
-    glow(ctx, TK.x, TK.y + TK.R * SE, 120, 'GOLD_HOT', 0.25 * ig + 0.5 * Math.exp(-(t - 0.9) / 0.18));
   }
-  // Near coils over the vessel
-  COILS.forEach((c, j) => {
-    if (c.front <= 0.05) return;
-    stroke(ctx, c.pts, sub(p, (j / 16) * 0.45, (j / 16) * 0.45 + 0.4), { pen: { color: 'GOLD', alpha: 0.95, width: 2.2 }, tip: false });
-  });
-  text(s.ui, 'FUSION REACTOR · SCHEMATIC', TK.x, TK.y + 256, { voice: 'marker', size: 24, alpha: 0.75 * A * span(t, 0.5, 0.9), scale: s.S });
+  text(s.ui, 'FUSION REACTOR · SCHEMATIC', TK.x, 836, { voice: 'marker', size: 24, alpha: 0.75 * A * span(t, 0.5, 0.9), scale: s.S });
 
   // Energy per person: the century of growth, the long flat, then the bend
   axes(s, ctx, EN, span(t, 0.3, 1.1), { xTicks: [1900, 1950, 2000], fact: 'structural:ruler', title: 'ENERGY PER PERSON · SCHEMATIC', alpha: A });
   const past = span(t, 0.9, 2.5, ease.inOut);
   series(ctx, EN, EN_PAST, past, { pen: { color: 'GOLD_HOT', alpha: 1, width: 2.6 } });
   const x26 = EN.X(2026);
+  let next = 0;
   if (past >= 1) {
     stroke(ctx, [[x26, EN.box.y + EN.box.h], [x26, EN.Y(0.78) + 10]], span(t, 2.5, 2.7), { pen: { color: 'GOLD', alpha: 0.5, width: 1 }, tip: false, dash: [3, 5] });
-    const next = span(t, 2.55, 3.4, ease.in);
+    next = span(t, 2.55, 3.4, ease.in);
     const tip = series(ctx, EN, EN_NEXT, next, { pen: { color: 'GOLD_HOT', alpha: 1, width: 2.6 }, dash: [10, 8] });
     if (tip && next > 0) glow(ctx, tip[0], tip[1], 40, 'GOLD_HOT', 0.5);
   }
   ctx.globalAlpha = 1;
-  if (past >= 1) text(s.ui, 'NEXT', EN.X(2040), EN.Y(1.32), { voice: 'marker', size: 24, alpha: 0.85 * A * span(t, 2.7, 3.0), scale: s.S });
+  // NEXT sits to the left of the bend, clear of the dashed line
+  text(s.ui, 'NEXT', EN.X(2047) - 22, EN.Y(1.35), { voice: 'marker', size: 24, align: 'right', alpha: 0.85 * A * clamp(next * 3 - 0.5), scale: s.S });
 }
 
 // ---------------------------------------------------------------------------
@@ -381,14 +390,14 @@ const needle = tau => {
   const settle = tau < 1.0 ? lerp(0.5, 0.73, ease.spring(clamp((tau - 0.45) / 0.55))) : 0.73;
   return settle + 0.245 * ease.in(clamp((tau - 1.0) / 3.0)) + (tau > 1 ? 0.0025 * Math.sin(tau * 37) : 0);
 };
-const BEND = Array.from({ length: 121 }, (_, i) => { const u = i / 120; return [140 + 1640 * u, 860 - 700 * u * u * u]; });
+const BEND = Array.from({ length: 121 }, (_, i) => { const u = i / 120; return [140 + 1640 * u, 840 - 620 * Math.pow(u, 5)]; });
 
 function plateGauge(ctx, s, t) {
   const tau = t - 3 * PLATE;
   if (tau < 0) return;
   const { x, y, r, a0, a1 } = DIAL;
   // The curve behind the gauge, bending up as the riser builds
-  const bp = span(tau, 0.2, 3.9, ease.in);
+  const bp = span(tau, 0.2, 3.9, ease.linear);
   if (bp > 0) {
     const n = Math.max(2, Math.ceil(BEND.length * bp));
     stroke(ctx, BEND.slice(0, n), 1, { pen: { color: 'GOLD', alpha: 0.3, width: 1.6 }, tip: false, dash: [8, 8] });
@@ -451,7 +460,7 @@ export default scene('21_future', {
     plateGauge(ctx, s, t);
 
     // The circle changes role between plates.
-    morphRing(ctx, t, { x: TK.x, y: TK.y, rx: TK.R, ry: TK.R * SE }, { x: LOOP.x, y: LOOP.y, rx: LOOP.r, ry: LOOP.r }, 3.55, 4.1);
+    morphRing(ctx, t, { x: TK.x, y: TK.y, rx: AXIS[0], ry: AXIS[0] * SE }, { x: LOOP.x, y: LOOP.y, rx: LOOP.r, ry: LOOP.r }, 3.55, 4.1);
     morphRing(ctx, t, { x: LOOP.x, y: LOOP.y, rx: LOOP.r, ry: LOOP.r }, { x: MOON.x, y: MOON.y, rx: MOON.r, ry: MOON.r }, 7.55, 8.1);
     morphRing(ctx, t, { x: 960, y: MARS_TOP + MARS_R, rx: MARS_R, ry: MARS_R, w: 3.2 }, { x: DIAL.x, y: DIAL.y, rx: DIAL.r, ry: DIAL.r }, 11.55, 12.1, { from: 'CRIMSON', to: 'GOLD_HOT' });
 

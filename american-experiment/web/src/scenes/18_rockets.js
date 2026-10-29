@@ -18,7 +18,7 @@ const TOWER = { x: 1110, top: 340, base: 900, w: 74, arm: 452 };
 const MRNA = 'AUGGCCAUUGUAAUGGGCCGCUGAAAGGGUGCCCGAUAG';
 
 /** A booster in elevation, base centre at (x, y), tilted by a. w = width, h = height. */
-function booster(g, x, y, w, h, a, o = {}) {
+export function booster(g, x, y, w, h, a, o = {}) {
   const c = Math.cos(a), s = Math.sin(a);
   const P = (u, v) => [x + u * c + v * s, y + u * s - v * c]; // u across, v up
   const A = o.alpha ?? 1;

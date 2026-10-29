@@ -57,7 +57,7 @@ function arrowArc(g, a, b, bend, p, alpha) {
 }
 
 /** The Capitol's dome as a wireframe: drum and peristyle, ribbed dome, lantern. p builds it upward. */
-function dome(g, cx, by, p, yaw, alpha) {
+export function dome(g, cx, by, p, yaw, alpha) {
   if (p <= 0) return;
   const cam = camera3d({ cx, by, k: 1, yc: 260, D: 1500, yaw });
   const R = (y, r, q, o = {}) => ring(g, cam, y, r, q, { front: 0.95 * alpha, back: 0.22 * alpha, width: 1.6, n: 72, ...o });

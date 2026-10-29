@@ -55,7 +55,7 @@ function ship(g, ox, oy, sc, stage, t, o = {}) {
 }
 
 // --- A four-engine bomber in plan view, nose to the right -----------------------------
-function bomber(g, ox, oy, sc, stage, o = {}) {
+export function bomber(g, ox, oy, sc, stage, o = {}) {
   const a = o.alpha ?? 1, lw = o.lw ?? 1;
   const P = (x, y) => [ox + x * sc, oy + y * sc];
   const pen = (c, al, w) => ({ color: c, alpha: al * a, width: w * lw });

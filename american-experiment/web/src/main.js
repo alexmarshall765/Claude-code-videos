@@ -1,7 +1,7 @@
 // Boot: load the timeline, facts and fonts, build the film, then either expose the
 // capture API (?render), draw one frame (?frame=N), or run the interactive preview.
 //
-// Flags: ?frame=N  ?preview  ?scale=2  ?debug  ?render  ?t=SECONDS
+// Flags: ?frame=N  ?preview  ?scale=2  ?debug  ?render  ?t=SECONDS  ?final=WORD
 
 import { Film } from './engine.js';
 import { Timeline } from './timeline.js';
@@ -36,6 +36,8 @@ async function boot() {
     scale: SCALE, debug: DEBUG, noTexture: params.has('notexture'),
   });
   film.hud = new Hud(film);
+  // ?final=ACCELERATE. swaps the film's last word (OBS 22's white card).
+  film.finalWord = params.get('final') ? params.get('final').trim().toUpperCase() : null;
   window.film = film;
   window.renderFrame = n => film.renderFrame(n);
   window.fontStatus = () => [...document.fonts].map(f => ({ family: f.family, weight: f.weight, status: f.status }));
