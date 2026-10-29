@@ -9,7 +9,7 @@
 import { scene, SEED } from './common.js';
 import { rgba } from '../theme.js';
 import { ease, clamp, lerp, sub, span, TAU, mulberry32 } from '../engine.js';
-import { stroke, circle } from '../draw/paths.js';
+import { stroke, circle, dot } from '../draw/paths.js';
 import { card, text } from '../draw/type.js';
 import { transistor } from '../draw/icons.js';
 import { scales, axes, series } from '../draw/charts.js';
@@ -87,7 +87,7 @@ export default scene('15_silicon', {
   camera(s) {
     const t = s.t;
     const glitch = t > 13 && t < 13.5 ? (Math.floor(t * 16) % 2 ? 1 : -1) * 6 : 0;
-    return { x: 960 + glitch, y: 540, zoom: 1 };
+    return { x: 960 + glitch, y: 540, zoom: 1 + 0.025 * span(t, 0, 16, ease.sineInOut) };
   },
 
   draw(ctx, s) {
@@ -123,6 +123,9 @@ export default scene('15_silicon', {
         for (let i = 0; i < n * 2; i++) {
           const y = cy - half + 20 + (i * (2 * half - 40)) / (n * 2 - 1);
           stroke(ctx, [[cx - half - 40, y], [cx - half, y], [cx - half + 30, y + 14]], tile, { pen: { color: 'GOLD', alpha: 0.7 * ta, width: 1.2 }, tip: false });
+          // Current running in along each lead: the circuit is live.
+          const u = (t * 1.3 + i * 0.37) % 1;
+          if (tile >= 1) dot(ctx, cx - half - 40 + 40 * u, y, 2.4, 'GOLD_HOT', 0.9 * ta * Math.sin(Math.PI * u));
         }
         text(s.ui, 'INTEGRATED CIRCUIT · 1958', 960, 920, { voice: 'data', size: 26, alpha: 0.85 * s.env('3.1', '3.2') * ta, fact: 'ic_1958', scale: s.S });
       }
