@@ -1,0 +1,336 @@
+{
+  "_about": "Score for THE AMERICAN EXPERIMENT. audio/synth.py renders it against timeline.json. Each section starts at a scene-anchored address (\"scene@bar.beat\") and runs until the next section starts, so retiming a scene in timeline.json moves the music with it. Layer from/to are local bars inside the section (inclusive). Gains are dB. Notes are MIDI numbers; theme beats are quarter notes from the phrase start.",
+  "sampleRate": 48000,
+  "bitDepth": 24,
+  "key": "D minor",
+  "targetLufs": -14.0,
+  "truePeakDb": -1.0,
+
+  "chords": {
+    "Dm":   { "pad": [57, 62, 65], "low": 50, "bass": 38 },
+    "Bb":   { "pad": [58, 62, 65], "low": 46, "bass": 34 },
+    "F":    { "pad": [57, 60, 65], "low": 53, "bass": 41 },
+    "C":    { "pad": [55, 60, 64], "low": 48, "bass": 36 },
+    "Fadd9":{ "pad": [57, 60, 65, 67], "low": 53, "bass": 41 },
+    "Cadd9":{ "pad": [55, 60, 62, 64], "low": 48, "bass": 36 },
+    "D":    { "pad": [57, 62, 66], "low": 50, "bass": 38 },
+    "Em":   { "pad": [59, 64, 67], "low": 52, "bass": 40 },
+    "Ce":   { "pad": [55, 60, 64], "low": 48, "bass": 36 },
+    "G":    { "pad": [55, 59, 62], "low": 43, "bass": 43 },
+    "E":    { "pad": [59, 64, 68], "low": 52, "bass": 40 }
+  },
+
+  "theme": {
+    "_about": "One singable climbing motif: a rising fourth (A to D), then stepwise up to the high tonic. The answer echoes the fourth (C to F) and falls back.",
+    "motif":  [[0, 1, 57], [1, 2.5, 62], [3.5, 0.5, 64], [4, 1, 65], [5, 1, 67], [6, 2, 69], [8, 1, 70], [9, 1, 72], [10, 6, 74]],
+    "answer": [[0, 1, 72], [1, 2.5, 77], [3.5, 0.5, 76], [4, 1, 74], [5, 1, 72], [6, 2, 69], [8, 1, 67], [9, 1, 72], [10, 6, 76]],
+    "counter": [[0, 2, 64], [2, 2, 67], [4, 2, 71], [6, 2, 72], [8, 2, 74], [10, 2, 76], [12, 2, 79], [14, 2, 83]]
+  },
+
+  "patterns": {
+    "four":       "X...x...X...x...",
+    "heartbeat":  "x..o....x..o....",
+    "half":       "X.........x.....",
+    "launch":     "X.......X..x....",
+    "backbeat":   "....x.......x...",
+    "halfsnare":  "........X.......",
+    "eighths":    "x.x.x.x.x.x.x.x.",
+    "sixteenths": "xoxoxoxoxoxoxoxo",
+    "offbeat":    "..x...x...x...x.",
+    "rim_soft":   "....o..o....o.o.",
+    "metal16":    "x.ox.o.xo.x.oxo.",
+    "mech16":     "xxxxxxxxxxxxxxxx",
+    "robot":      "x..x..x...x..x..",
+    "tick8":      "x.x.x.x.x.x.x.x."
+  },
+
+  "arps": {
+    "rise":   [0, 1, 2, 3, 1, 2, 3, 4, 2, 3, 4, 5, 3, 4, 5, 6],
+    "pulse":  [0, 2, 4, 2, 0, 2, 4, 2, 0, 2, 4, 2, 0, 2, 4, 5],
+    "glass":  [3, 5, 4, 6, 3, 5, 4, 6, 2, 4, 3, 5, 2, 4, 3, 5],
+    "tokens": [0, 4, 2, 5, 1, 6, 3, 4, 0, 4, 2, 5, 1, 6, 3, 5],
+    "cells":  [0, 3, 1, 4, 2, 5, 3, 6, 0, 3, 1, 4, 2, 5, 3, 6],
+    "seq":    [0, 0, 3, 0, 1, 0, 4, 0, 0, 0, 3, 0, 2, 0, 5, 3]
+  },
+
+  "gates": [
+    { "_about": "Touchdown: everything but the held D major pad stops dead.", "from": "14_apollo@11.1", "to": "14_apollo@12.1", "stems": ["drums", "bass", "arps", "lead", "fx"] },
+    { "from": "14_apollo@12.1", "to": "15_silicon@1.1", "stems": ["drums", "bass", "arps", "lead"] },
+    { "_about": "The beat of black before the final chord.", "from": "22_coda@4.4", "to": "22_coda@5.1", "stems": ["all"] },
+    { "_about": "Flight touchdown: the drop is held until 65.1.", "from": "10_flight@8.1", "to": "11_assembly@1.1", "stems": ["drums", "bass", "arps"] }
+  ],
+
+  "sections": [
+    {
+      "name": "Intro", "at": "01_prologue@1.1", "energy": 2,
+      "chords": ["Dm", "Dm", "Bb", "C"], "chordBars": 2,
+      "layers": {
+        "drone":  { "gain": -13, "fadeIn": 3.0 },
+        "pad":    { "gain": -21, "cutoff": [260, 900], "fadeIn": 4.0 },
+        "kick":   { "pattern": "heartbeat", "from": 3, "to": 8, "gain": -9, "soft": true },
+        "arp":    { "pattern": "rise", "octave": 0, "wave": "square", "cutoff": [240, 320], "gain": -24, "from": 5, "fadeIn": 6.0 }
+      }
+    },
+    {
+      "name": "Founding A", "at": "03_founding@1.1", "energy": 3,
+      "chords": ["Dm", "Bb", "F", "C"], "chordBars": 2,
+      "layers": {
+        "drone":  { "gain": -16 },
+        "pad":    { "gain": -20, "cutoff": [700, 900] },
+        "organ":  { "gain": -19, "fadeIn": 2.0 },
+        "arp":    { "pattern": "rise", "octave": 0, "wave": "square", "cutoff": [300, 1150], "gain": -18 },
+        "rim":    { "pattern": "rim_soft", "gain": -24 }
+      }
+    },
+    {
+      "name": "Founding B", "at": "04_constitution@1.1", "energy": 4,
+      "chords": ["Dm", "Bb", "F", "C"], "chordBars": 2,
+      "layers": {
+        "drone":  { "gain": -18 },
+        "pad":    { "gain": -19, "cutoff": [900, 1100] },
+        "organ":  { "gain": -19 },
+        "arp":    { "pattern": "rise", "octave": 0, "wave": "square", "cutoff": [1150, 2000], "gain": -17 },
+        "kick":   { "pattern": "four", "gain": -7 },
+        "rim":    { "pattern": "rim_soft", "gain": -23 }
+      }
+    },
+    {
+      "name": "Expansion", "at": "05_expansion@1.1", "energy": 5,
+      "chords": ["Dm", "Bb", "F", "C", "Dm", "Bb"], "chordBars": 2,
+      "layers": {
+        "pad":    { "gain": -19, "cutoff": [1100, 1500] },
+        "arp":    { "pattern": "pulse", "octave": 0, "wave": "saw", "cutoff": [1800, 2400], "gain": -18 },
+        "kick":   { "pattern": "four", "gain": -6 },
+        "bass":   { "style": "offbeat8", "cutoff": 700, "gain": -9 },
+        "hat":    { "pattern": "eighths", "from": 5, "gain": -21 },
+        "clap":   { "pattern": "backbeat", "from": 5, "gain": -13 }
+      }
+    },
+    {
+      "name": "Liberty breakdown", "at": "07_liberty@1.1", "energy": 3,
+      "chords": ["Dm", "Bb", "F", "C"], "chordBars": 2,
+      "layers": {
+        "drone":  { "gain": -15 },
+        "pad":    { "gain": -16, "cutoff": [1300, 800] },
+        "arp":    { "pattern": "glass", "octave": 0, "wave": "square", "cutoff": [900, 700], "gain": -27, "to": 6 }
+      }
+    },
+    {
+      "name": "Industry drop", "at": "08_steel@1.1", "energy": 7,
+      "chords": ["Dm", "Bb", "F", "C", "Dm", "Bb"], "chordBars": 2,
+      "layers": {
+        "pad":    { "gain": -18, "cutoff": [1600, 2200] },
+        "arp":    { "pattern": "pulse", "octave": 0, "wave": "saw", "cutoff": [2400, 3000], "gain": -18 },
+        "kick":   { "pattern": "four", "gain": -5 },
+        "bass":   { "style": "roll16", "cutoff": 900, "gain": -9 },
+        "clap":   { "pattern": "backbeat", "gain": -12 },
+        "hat":    { "pattern": "sixteenths", "gain": -21 },
+        "openhat":{ "pattern": "offbeat", "gain": -23 },
+        "fm_perc":{ "pattern": "metal16", "gain": -22 },
+        "zaps":   { "pattern": "robot", "from": 9, "gain": -24 },
+        "crash":  { "every": 4, "gain": -15 }
+      }
+    },
+    {
+      "name": "Flight build", "at": "10_flight@1.1", "energy": 6,
+      "chords": ["Dm", "Bb", "F", "C"], "chordBars": 2,
+      "layers": {
+        "pad":    { "gain": -15, "cutoff": [800, 4200] },
+        "arp":    { "pattern": "rise", "octave": 0, "wave": "saw", "cutoff": [900, 3800], "gain": -17, "from": 2 },
+        "bass":   { "style": "long", "cutoff": 450, "gain": -12, "from": 2, "to": 7 },
+        "kick":   { "pattern": "four", "from": 4, "to": 7, "gain": -7 },
+        "snare_roll": { "from": 2, "to": 7, "gain": -10 },
+        "noise_riser":{ "from": 2, "to": 8, "gain": -14 }
+      }
+    },
+    {
+      "name": "Assembly line", "at": "11_assembly@1.1", "energy": 8,
+      "chords": ["Dm", "Bb"], "chordBars": 2,
+      "layers": {
+        "pad":    { "gain": -19, "cutoff": [2000, 2000] },
+        "sequencer": { "pattern": "seq", "gain": -15 },
+        "kick":   { "pattern": "four", "gain": -5 },
+        "bass":   { "style": "roll16", "cutoff": 1100, "gain": -9 },
+        "clap":   { "pattern": "backbeat", "gain": -13 },
+        "hat":    { "pattern": "mech16", "gain": -22 },
+        "robot":  { "pattern": "robot", "gain": -17 },
+        "crash":  { "every": 4, "gain": -14 }
+      }
+    },
+    {
+      "name": "Arsenal", "at": "12_arsenal@1.1", "energy": 9,
+      "chords": ["Dm", "Bb", "F", "C"], "chordBars": 2,
+      "layers": {
+        "pad":    { "gain": -17, "cutoff": [2200, 2600] },
+        "arp":    { "pattern": "pulse", "octave": 0, "wave": "saw", "cutoff": [2600, 3200], "gain": -20 },
+        "lead":   { "phrases": ["motif", "answer"], "octave": 0, "gain": -9 },
+        "kick":   { "pattern": "four", "gain": -4 },
+        "bass":   { "style": "roll16", "cutoff": 1000, "gain": -8 },
+        "clap":   { "pattern": "backbeat", "gain": -11 },
+        "hat":    { "pattern": "sixteenths", "gain": -20 },
+        "openhat":{ "pattern": "offbeat", "gain": -22 },
+        "crash":  { "every": 4, "gain": -12 }
+      }
+    },
+    {
+      "name": "Postwar boom", "at": "13_boom@1.1", "energy": 7,
+      "chords": ["Fadd9", "Cadd9"], "chordBars": 2,
+      "layers": {
+        "pad":    { "gain": -17, "cutoff": [2600, 3000] },
+        "arp":    { "pattern": "glass", "octave": 0, "wave": "square", "cutoff": [2600, 3000], "gain": -19 },
+        "kick":   { "pattern": "four", "gain": -8 },
+        "bass":   { "style": "offbeat8", "cutoff": 900, "gain": -11 },
+        "openhat":{ "pattern": "offbeat", "gain": -19 },
+        "hat":    { "pattern": "eighths", "gain": -24 }
+      }
+    },
+    {
+      "name": "Apollo pre-launch", "at": "14_apollo@1.1", "energy": 5,
+      "chords": ["Dm", "Bb", "C"], "chordBars": 2,
+      "layers": {
+        "drone":  { "gain": -13 },
+        "pad":    { "gain": -16, "cutoff": [900, 2400] },
+        "sub_pulse": { "gain": -9 },
+        "arp":    { "pattern": "glass", "octave": 0, "wave": "square", "cutoff": [600, 1800], "gain": -24, "from": 3 },
+        "noise_riser": { "from": 4, "to": 6, "gain": -14 }
+      }
+    },
+    {
+      "name": "Launch", "at": "14_apollo@7.1", "energy": 10,
+      "chords": ["Dm", "Bb"], "chordBars": 2,
+      "layers": {
+        "pad":    { "gain": -14, "cutoff": [3000, 3000] },
+        "lead":   { "phrases": ["motif"], "octave": 0, "gain": -7 },
+        "kick":   { "pattern": "launch", "gain": -3 },
+        "snare":  { "pattern": "halfsnare", "gain": -8 },
+        "hat":    { "pattern": "eighths", "gain": -20 },
+        "bass":   { "style": "long", "cutoff": 500, "gain": -8 },
+        "sub_roar": { "gain": -10 },
+        "crash":  { "every": 2, "gain": -11 },
+        "organ":  { "gain": -20 }
+      }
+    },
+    {
+      "name": "Touchdown", "at": "14_apollo@11.1", "energy": 3,
+      "chords": ["D"], "chordBars": 2,
+      "layers": {
+        "pad":    { "gain": -14, "cutoff": [2400, 1200], "attack": 0.02 },
+        "choir":  { "gain": -22, "hold": true }
+      }
+    },
+    {
+      "name": "Silicon", "at": "15_silicon@1.1", "energy": 7,
+      "chords": ["Dm", "Bb", "F", "C"], "chordBars": 2,
+      "layers": {
+        "pad":    { "gain": -19, "cutoff": [1400, 2200] },
+        "arp":    { "pattern": "cells", "octave": 0, "wave": "square", "cutoff": [2200, 3200], "gain": -16, "crush": 6, "stepUp": 2 },
+        "kick":   { "pattern": "four", "gain": -5 },
+        "bass":   { "style": "offbeat8", "cutoff": 900, "gain": -9 },
+        "hat":    { "pattern": "sixteenths", "gain": -20 },
+        "clap":   { "pattern": "backbeat", "from": 3, "gain": -13 }
+      }
+    },
+    {
+      "name": "Internet", "at": "16_internet@1.1", "energy": 8,
+      "chords": ["Dm", "Bb", "F", "C"], "chordBars": 2,
+      "layers": {
+        "pad":    { "gain": -17, "cutoff": [2200, 3000], "wide": true },
+        "arp":    { "pattern": "pulse", "octave": 0, "wave": "saw", "cutoff": [2800, 3400], "gain": -19 },
+        "kick":   { "pattern": "four", "gain": -4 },
+        "bass":   { "style": "roll16", "cutoff": 1100, "gain": -8 },
+        "clap":   { "pattern": "backbeat", "gain": -12 },
+        "hat":    { "pattern": "sixteenths", "gain": -20 },
+        "openhat":{ "pattern": "offbeat", "gain": -23 },
+        "crash":  { "every": 4, "gain": -14 }
+      }
+    },
+    {
+      "name": "Electric car", "at": "17_car@1.1", "energy": 8,
+      "chords": ["Dm", "Bb"], "chordBars": 2,
+      "layers": {
+        "pad":    { "gain": -18, "cutoff": [1800, 3200] },
+        "arp":    { "pattern": "cells", "octave": 1, "wave": "square", "cutoff": [2400, 4000], "gain": -20 },
+        "kick":   { "pattern": "four", "gain": -5 },
+        "bass":   { "style": "roll16", "cutoff": 1000, "gain": -9 },
+        "hat":    { "pattern": "sixteenths", "gain": -21 },
+        "clap":   { "pattern": "backbeat", "from": 3, "gain": -12 }
+      }
+    },
+    {
+      "name": "Rockets and life", "at": "18_rockets@1.1", "energy": 9,
+      "chords": ["Dm", "Bb", "F", "C"], "chordBars": 2,
+      "layers": {
+        "pad":    { "gain": -17, "cutoff": [2600, 3200] },
+        "arp":    { "pattern": "rise", "octave": 0, "wave": "saw", "cutoff": [3000, 3600], "gain": -19 },
+        "kick":   { "pattern": "four", "gain": -4 },
+        "bass":   { "style": "roll16", "cutoff": 1100, "gain": -8 },
+        "clap":   { "pattern": "backbeat", "gain": -11 },
+        "hat":    { "pattern": "sixteenths", "gain": -20 },
+        "openhat":{ "pattern": "offbeat", "gain": -22 },
+        "fm_perc":{ "pattern": "metal16", "gain": -24 },
+        "crash":  { "every": 4, "gain": -13 }
+      }
+    },
+    {
+      "name": "Generative AI", "at": "19_ai@1.1", "energy": 10,
+      "chords": ["Dm", "Bb", "F", "C"], "chordBars": 2,
+      "layers": {
+        "pad":    { "gain": -16, "cutoff": [3000, 3600] },
+        "arp":    { "pattern": "tokens", "octave": 1, "wave": "square", "cutoff": [3200, 4200], "gain": -20 },
+        "lead":   { "phrases": ["motif", "answer"], "octave": 1, "gain": -8 },
+        "kick":   { "pattern": "four", "gain": -3 },
+        "bass":   { "style": "roll16", "cutoff": 1100, "gain": -8 },
+        "clap":   { "pattern": "backbeat", "gain": -11 },
+        "hat":    { "pattern": "sixteenths", "gain": -20 },
+        "openhat":{ "pattern": "offbeat", "gain": -21 },
+        "crash":  { "every": 4, "gain": -12 }
+      }
+    },
+    {
+      "name": "250", "at": "20_250@1.1", "energy": 6,
+      "chords": ["Bb", "C"], "chordBars": 2,
+      "layers": {
+        "pad":    { "gain": -14, "cutoff": [1200, 4000], "swell": true },
+        "drone":  { "gain": -16 },
+        "arp":    { "pattern": "glass", "octave": 1, "wave": "square", "cutoff": [2000, 3000], "gain": -24 }
+      }
+    },
+    {
+      "name": "Open future", "at": "21_future@1.1", "energy": 10,
+      "chords": ["Em", "Ce", "G", "D"], "chordBars": 2,
+      "layers": {
+        "pad":    { "gain": -16, "cutoff": [3200, 3800], "wide": true },
+        "choir":  { "phrases": ["motif", "answer"], "transpose": 2, "gain": -10 },
+        "lead":   { "phrases": ["motif", "answer"], "octave": -1, "transpose": 2, "gain": -13 },
+        "counter":{ "transpose": 0, "gain": -15 },
+        "arp":    { "pattern": "rise", "octave": 1, "wave": "saw", "cutoff": [3200, 4200], "gain": -21, "transposeChords": true },
+        "kick":   { "pattern": "four", "gain": -3 },
+        "bass":   { "style": "roll16", "cutoff": 1200, "gain": -8 },
+        "clap":   { "pattern": "backbeat", "gain": -11 },
+        "hat":    { "pattern": "sixteenths", "gain": -20 },
+        "openhat":{ "pattern": "offbeat", "gain": -21 },
+        "crash":  { "every": 4, "gain": -12 },
+        "organ":  { "gain": -21 }
+      }
+    },
+    {
+      "name": "Rewind", "at": "22_coda@1.1", "energy": 6,
+      "chords": ["D"], "chordBars": 4,
+      "layers": {
+        "pad":    { "gain": -18, "cutoff": [2400, 600] },
+        "clock":  { "pattern": "tick8", "gain": -15 },
+        "drone":  { "gain": -15 }
+      }
+    },
+    {
+      "name": "Finale", "at": "22_coda@5.1", "energy": 10,
+      "chords": ["E"], "chordBars": 4,
+      "layers": {
+        "pad":    { "gain": -11, "cutoff": [4200, 900], "attack": 0.01, "release": 3.0, "decayTo": "22_coda@8.3" },
+        "choir":  { "gain": -10, "hold": true, "decayTo": "22_coda@8.3" },
+        "organ":  { "gain": -16, "decayTo": "22_coda@8.3" },
+        "drone":  { "gain": -14, "decayTo": "22_coda@8.3" }
+      }
+    }
+  ]
+}

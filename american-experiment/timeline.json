@@ -1,0 +1,441 @@
+{
+  "_about": "Master timeline. Both the Canvas renderer (web/) and the synth (audio/synth.py) read this file. Scenes are listed in order; each scene's startBar is derived from the bars of the scenes before it. Every cue address is LOCAL to its scene: \"bar.beat\" or \"bar.beat.sixteenth\", 1-indexed (\"7.1\" in a scene that starts at bar 81 is global bar 87, beat 1). \"scene@bar.beat\" points into another scene, and \"end\" is the scene's last instant. Run `make cues` to print the resolved cue sheet with global bar numbers and timecodes.",
+  "title": "THE AMERICAN EXPERIMENT",
+  "bpm": 120,
+  "beatsPerBar": 4,
+  "fps": 60,
+  "width": 1920,
+  "height": 1080,
+  "totalBars": 148,
+  "acts": {
+    "PROLOGUE": "PROLOGUE",
+    "I": "ACT I · THE HYPOTHESIS",
+    "II": "ACT II · THE FRONTIER",
+    "III": "ACT III · THE APPARATUS",
+    "IV": "ACT IV · THE PROOF",
+    "V": "ACT V · THE ACCELERATION",
+    "CODA": "CODA · THE EXPERIMENT CONTINUES"
+  },
+  "scenes": [
+    {
+      "id": "01_prologue", "obs": 1, "act": "PROLOGUE", "chapter": "FIELD LOG", "dates": "1776–∞", "bars": 4,
+      "hud": { "date": "1789", "coords": "40.71° N 74.01° W", "coordsFact": "coord_federal_hall" },
+      "bg": { "stars": 0 },
+      "transition": { "type": "cut" },
+      "years": [{ "at": "1.1", "year": 1776 }],
+      "cues": [
+        { "name": "ignite", "at": "1.3", "beats": 1, "audio": { "type": "pen", "gain": -16 } },
+        { "name": "compass_open", "at": "1.4", "beats": 2 },
+        { "name": "circle", "at": "2.2", "beats": 4, "audio": { "type": "pen", "gain": -18 } },
+        { "name": "stars", "at": "3.2", "every": "8th", "count": 13, "beats": 1, "audio": { "type": "glint", "gain": -26 } },
+        { "name": "card_staked", "at": "2.3", "to": "4.3", "card": { "text": "STAKED ON THE EXPERIMENT", "voice": "statement", "quote": true } },
+        { "name": "card_entrusted", "at": "3.1", "to": "4.3", "card": { "text": "ENTRUSTED TO THE HANDS OF THE AMERICAN PEOPLE", "voice": "data", "quote": true, "fact": "quote_washington" } },
+        { "name": "attrib_washington", "at": "3.2", "to": "4.3", "card": { "text": "— WASHINGTON, FIRST INAUGURAL, 1789", "voice": "data", "fact": "quote_washington" } },
+        { "name": "swell", "at": "4.1", "to": "end", "audio": { "type": "reverse_swell", "gain": -9 } }
+      ]
+    },
+    {
+      "id": "02_title", "obs": 2, "act": "PROLOGUE", "chapter": "TITLE", "dates": "1776–∞", "bars": 4,
+      "hud": { "date": "1776", "coords": "39.95° N 75.15° W", "coordsFact": "coord_independence_hall" },
+      "bg": { "stars": 0.5 },
+      "transition": { "type": "cut", "flash": 0.55 },
+      "years": [{ "at": "1.1", "year": 1776 }],
+      "events": [{ "at": "3.3", "year": 1776 }],
+      "cues": [
+        { "name": "title_impact", "at": "1.1", "beats": 4, "audio": { "type": "impact", "size": "huge", "gain": -3 } },
+        { "name": "torch", "at": "1.1", "to": "3.1" },
+        { "name": "flame", "at": "2.3", "beats": 2, "audio": { "type": "whoosh", "gain": -18 } },
+        { "name": "rays", "at": "1.1", "beats": 4 },
+        { "name": "ruler", "at": "3.3", "to": "4.4" },
+        { "name": "card_title", "at": "1.1", "to": "2.4", "card": { "text": "THE AMERICAN EXPERIMENT", "voice": "statement" } },
+        { "name": "card_tagline", "at": "3.1", "to": "end", "card": { "text": "A NATION CONCEIVED IN LIBERTY.", "voice": "statement" } },
+        { "name": "card_dates", "at": "3.3", "to": "end", "card": { "text": "1776 — ∞", "voice": "data", "fact": "date_declaration" } }
+      ]
+    },
+    {
+      "id": "03_founding", "obs": 3, "act": "I", "chapter": "FOUNDING", "dates": "1776", "bars": 8,
+      "hud": { "date": "1776", "coords": "39.95° N 75.15° W", "coordsFact": "coord_independence_hall" },
+      "bg": { "parchment": 0.13 },
+      "transition": { "type": "dissolve", "beats": 1 },
+      "years": [{ "at": "1.1", "year": 1776 }],
+      "events": [{ "at": "2.1", "year": 1776 }],
+      "cues": [
+        { "name": "parchment", "at": "1.1", "beats": 4 },
+        { "name": "page_grid", "at": "1.1", "every": "beat", "count": 4, "beats": 2, "audio": { "type": "pen", "gain": -20 } },
+        { "name": "quill", "at": "2.1", "every": "beat", "count": 8, "beats": 1, "audio": { "type": "pen", "gain": -21 } },
+        { "name": "equal_small", "at": "3.3", "beats": 4 },
+        { "name": "signatures", "at": "3.1", "every": "16th", "count": 32, "beats": 1, "audio": { "type": "glint", "gain": -30 } },
+        { "name": "population", "at": "4.1", "beats": 2 },
+        { "name": "stars", "at": "5.1", "every": "beat", "count": 13, "beats": 1, "audio": { "type": "star", "gain": -19 } },
+        { "name": "card_truths", "at": "2.1", "to": "4.1", "card": { "text": "WE HOLD THESE TRUTHS TO BE SELF-EVIDENT", "voice": "statement", "quote": true } },
+        { "name": "attrib_declaration", "at": "2.3", "to": "4.1", "card": { "text": "DECLARATION OF INDEPENDENCE, 1776", "voice": "data", "fact": "date_declaration" } },
+        { "name": "card_hypothesis", "at": "4.3", "to": "5.4", "card": { "text": "THE HYPOTHESIS:", "voice": "statement" } },
+        { "name": "card_free", "at": "6.1", "to": "8.3", "card": { "text": "FREE PEOPLE CAN GOVERN THEMSELVES.", "voice": "statement" } },
+        { "name": "data_population", "at": "4.1", "to": "8.3", "card": { "text": "POP. ≈ 2.5 MILLION", "voice": "data", "fact": "pop_1776" } }
+      ]
+    },
+    {
+      "id": "04_constitution", "obs": 4, "act": "I", "chapter": "CONSTITUTION", "dates": "1787–1791", "bars": 8,
+      "hud": { "date": "1787", "coords": "39.95° N 75.15° W", "coordsFact": "coord_independence_hall" },
+      "bg": { "parchment": 0.11 },
+      "transition": { "type": "cut" },
+      "years": [{ "at": "1.1", "year": 1787 }, { "at": "4.3", "year": 1791 }, { "at": "7.1", "year": 1790 }],
+      "events": [{ "at": "1.1", "year": 1787 }, { "at": "4.3", "year": 1791 }, { "at": "7.3", "year": 1790 }],
+      "cues": [
+        { "name": "branches", "at": "2.1", "beats": 8 },
+        { "name": "dome", "at": "5.1", "beats": 8 },
+        { "name": "bill_of_rights", "at": "4.3", "every": "beat", "count": 10, "beats": 1, "audio": { "type": "pluck", "gain": -20 } },
+        { "name": "patent", "at": "7.1", "beats": 4, "audio": { "type": "bell", "notes": [74, 81], "gain": -8 } },
+        { "name": "seal_stamp", "at": "7.3", "beats": 1, "audio": { "type": "thud", "gain": -12 } },
+        { "name": "card_people", "at": "1.1", "to": "2.4", "card": { "text": "WE THE PEOPLE", "voice": "statement", "quote": true } },
+        { "name": "attrib_constitution", "at": "1.3", "to": "2.4", "card": { "text": "CONSTITUTION, 1787", "voice": "data", "fact": "date_constitution" } },
+        { "name": "card_limited", "at": "3.1", "to": "4.4", "card": { "text": "LIMITED GOVERNMENT. UNLIMITED AMBITION.", "voice": "statement" } },
+        { "name": "card_progress", "at": "7.1", "to": "end", "card": { "text": "TO PROMOTE THE PROGRESS OF SCIENCE AND USEFUL ARTS", "voice": "statement", "quote": true } },
+        { "name": "attrib_patent", "at": "7.3", "to": "end", "card": { "text": "CONSTITUTION, ART. I §8 · PATENT ACT, 1790", "voice": "data", "fact": "patent_act_1790" } }
+      ]
+    },
+    {
+      "id": "05_expansion", "obs": 5, "act": "II", "chapter": "EXPANSION", "dates": "1785–1848", "bars": 8,
+      "hud": { "date": "1803", "coords": "38.80° N 90.11° W", "coordsFact": "coord_camp_dubois" },
+      "transition": { "type": "wipe", "beats": 1, "dir": "west" },
+      "years": [{ "at": "1.1", "year": 1785 }, { "at": "5.1", "year": 1803 }, { "at": "6.1", "year": 1819 }, { "at": "7.1", "year": 1845 }, { "at": "7.3", "year": 1846 }, { "at": "8.1", "year": 1848 }],
+      "events": [{ "at": "5.1", "year": 1803 }, { "at": "7.1", "year": 1845 }, { "at": "8.1", "year": 1848 }],
+      "cues": [
+        { "name": "continent", "at": "1.1", "beats": 4 },
+        { "name": "fill", "at": ["2.1", "5.1", "6.1", "7.1", "7.3", "8.1"], "beats": 2, "audio": { "type": "thud", "gain": -13 } },
+        { "name": "survey", "at": "3.1", "to": "4.4" },
+        { "name": "lewis_clark", "at": "5.3", "to": "6.4" },
+        { "name": "contours", "at": "8.1", "beats": 4 },
+        { "name": "card_surveyed", "at": "2.1", "to": "4.4", "card": { "text": "A CONTINENT, SURVEYED.", "voice": "statement" } },
+        { "name": "data_1803", "at": "5.1", "to": "7.1", "card": { "text": "1803 · ≈ 828,000 SQ MI", "voice": "data", "fact": "louisiana_purchase" } },
+        { "name": "card_doubles", "at": "5.1", "to": "7.1", "card": { "text": "THE NATION DOUBLES.", "voice": "statement" } }
+      ]
+    },
+    {
+      "id": "06_roads", "obs": 6, "act": "II", "chapter": "ROADS, CANALS, WIRES", "dates": "1811–1844", "bars": 4,
+      "hud": { "date": "1844", "coords": "38.89° N 77.01° W", "coordsFact": "coord_capitol" },
+      "transition": { "type": "wipe", "beats": 1, "dir": "east" },
+      "years": [{ "at": "1.1", "year": 1811 }, { "at": "2.1", "year": 1825 }, { "at": "3.3", "year": 1844 }],
+      "events": [{ "at": "2.1", "year": 1825 }, { "at": "4.1", "year": 1844 }],
+      "cues": [
+        { "name": "road", "at": "1.1", "beats": 4 },
+        { "name": "lock_rise", "at": "2.1", "beats": 4, "audio": { "type": "impact", "size": "medium", "gain": -9 } },
+        { "name": "paddle", "at": "2.3", "beats": 4 },
+        { "name": "morse", "at": "3.3", "to": "4.4", "audio": { "type": "morse", "text": "USA", "unit": "16th", "freq": 1000, "gain": -17 } },
+        { "name": "card_roads", "at": "1.1", "to": "2.2", "card": { "text": "WE BUILT THE ROADS.", "voice": "statement" } },
+        { "name": "card_canals", "at": "2.3", "to": "4.1", "card": { "text": "THEN THE CANALS. THEN THE WIRES.", "voice": "statement" } },
+        { "name": "card_wrought", "at": "4.1", "to": "07_liberty@1.2", "card": { "text": "WHAT HATH GOD WROUGHT", "voice": "statement", "quote": true } },
+        { "name": "attrib_telegraph", "at": "4.1", "to": "07_liberty@1.2", "card": { "text": "FIRST LONG-DISTANCE TELEGRAPH, 1844", "voice": "data", "fact": "telegraph_1844" } }
+      ]
+    },
+    {
+      "id": "07_liberty", "obs": 7, "act": "II", "chapter": "LIBERTY EXTENDED", "dates": "1863–1965", "bars": 8,
+      "hud": { "date": "1863", "coords": "39.83° N 77.23° W", "coordsFact": "coord_gettysburg" },
+      "transition": { "type": "dissolve", "beats": 1 },
+      "years": [{ "at": "1.1", "year": 1863 }, { "at": "2.1", "year": 1865 }, { "at": "3.1", "year": 1868 }, { "at": "4.1", "year": 1870 }, { "at": "5.1", "year": 1920 }, { "at": "6.1", "year": 1964 }, { "at": "7.1", "year": 1965 }, { "at": "8.3", "year": 1869 }],
+      "events": [{ "at": "2.1", "year": 1865 }, { "at": "3.1", "year": 1868 }, { "at": "4.1", "year": 1870 }, { "at": "5.1", "year": 1920 }, { "at": "6.1", "year": 1964 }, { "at": "7.1", "year": 1965 }],
+      "cues": [
+        { "name": "equal_returns", "at": "1.1", "beats": 4, "audio": { "type": "pen", "gain": -20 } },
+        { "name": "rings", "at": ["2.1", "3.1", "4.1", "5.1", "6.1", "7.1"], "beats": 4, "audio": { "type": "ring", "gain": -13 } },
+        { "name": "riser", "at": "7.1", "to": "end", "audio": { "type": "riser", "gain": -11 } },
+        { "name": "spring_back", "at": "8.3", "beats": 2 },
+        { "name": "card_birth", "at": "1.1", "to": "3.1", "card": { "text": "A NEW BIRTH OF FREEDOM.", "voice": "statement", "quote": true } },
+        { "name": "attrib_lincoln", "at": "1.3", "to": "3.1", "card": { "text": "LINCOLN, GETTYSBURG ADDRESS, 1863", "voice": "data", "fact": "quote_lincoln" } },
+        { "name": "card_corrects", "at": "4.1", "to": "5.3", "card": { "text": "THE EXPERIMENT CORRECTS ITSELF.", "voice": "statement" } },
+        { "name": "card_widened", "at": "6.1", "to": "8.2", "card": { "text": "THE PROMISE, WIDENED.", "voice": "statement" } }
+      ]
+    },
+    {
+      "id": "08_steel", "obs": 8, "act": "III", "chapter": "STEEL & RAILS", "dates": "1869–1883", "bars": 8,
+      "hud": { "date": "1869", "coords": "41.62° N 112.55° W", "coordsFact": "coord_promontory" },
+      "transition": { "type": "cut", "flash": 0.35 },
+      "years": [{ "at": "1.1", "year": 1869 }, { "at": "4.1", "year": 1883 }],
+      "events": [{ "at": "3.1", "year": 1869 }, { "at": "4.1", "year": 1883 }],
+      "cues": [
+        { "name": "rails", "at": "1.1", "to": "3.1" },
+        { "name": "spike", "at": "3.1", "beats": 2, "audio": { "type": "anvil", "gain": -5 } },
+        { "name": "towers", "at": "4.1", "beats": 4 },
+        { "name": "cables", "at": "5.1", "beats": 2 },
+        { "name": "suspenders", "at": "5.3", "every": "16th", "count": 24, "beats": 1, "audio": { "type": "tick", "gain": -25 } },
+        { "name": "stays", "at": "7.1", "beats": 2 },
+        { "name": "bessemer", "at": "7.3", "beats": 4 },
+        { "name": "steel_curve", "at": "8.1", "beats": 4 },
+        { "name": "card_one_line", "at": "3.1", "to": "4.2", "card": { "text": "ONE CONTINENT, ONE LINE.", "voice": "statement" } },
+        { "name": "data_1869", "at": "3.1", "to": "4.2", "card": { "text": "MAY 10, 1869 · PROMONTORY SUMMIT", "voice": "data", "fact": "railroad_1869" } },
+        { "name": "data_span", "at": "6.1", "to": "8.1", "card": { "text": "MAIN SPAN 1,595.5 FT", "voice": "data", "fact": "brooklyn_span" } },
+        { "name": "card_steel", "at": "5.1", "to": "6.2", "card": { "text": "STEEL.", "voice": "statement" } },
+        { "name": "card_joined", "at": "7.1", "to": "end", "card": { "text": "WE JOINED A CONTINENT.", "voice": "statement" } }
+      ]
+    },
+    {
+      "id": "09_light", "obs": 9, "act": "III", "chapter": "LIGHT & INVENTION", "dates": "1876–1900", "bars": 4,
+      "hud": { "date": "1879", "coords": "40.56° N 74.34° W", "coordsFact": "coord_menlo_park" },
+      "transition": { "type": "cut" },
+      "years": [{ "at": "1.1", "year": 1879 }, { "at": "3.1", "year": 1876 }, { "at": "4.1", "year": 1900 }],
+      "events": [{ "at": "1.1", "year": 1879 }, { "at": "4.1", "year": 1900 }],
+      "cues": [
+        { "name": "bulb", "at": "1.1", "beats": 2, "audio": { "type": "zap", "gain": -9 } },
+        { "name": "cities", "at": "2.1", "every": "16th", "count": 24, "beats": 1, "audio": { "type": "blip", "gain": -21 } },
+        { "name": "telephone", "at": "3.1", "beats": 4 },
+        { "name": "odometer", "at": "4.1", "to": "end" },
+        { "name": "card_night", "at": "1.3", "to": "3.2", "card": { "text": "WE LIT THE NIGHT.", "voice": "statement" } },
+        { "name": "data_patent", "at": "3.3", "to": "end", "card": { "text": "U.S. PATENT NO. 640,167 · 1900", "voice": "data", "fact": "patent_1900" } }
+      ]
+    },
+    {
+      "id": "10_flight", "obs": 10, "act": "III", "chapter": "FLIGHT", "dates": "1903", "bars": 8,
+      "hud": { "date": "1903", "coords": "36.01° N 75.67° W", "coordsFact": "coord_kill_devil_hills" },
+      "transition": { "type": "wipe", "beats": 1, "dir": "east" },
+      "years": [{ "at": "1.1", "year": 1903 }],
+      "events": [{ "at": "2.1", "year": 1903 }],
+      "cues": [
+        { "name": "blueprint", "at": "1.1", "every": "16th", "count": 16, "beats": 1, "audio": { "type": "tick", "gain": -24 } },
+        { "name": "liftoff", "at": "2.1", "beats": 1, "audio": { "type": "whoosh", "gain": -14 } },
+        { "name": "flight", "at": "2.1", "to": "8.1" },
+        { "name": "touchdown", "at": "8.1", "beats": 2, "audio": { "type": "thud", "gain": -10 } },
+        { "name": "great_circle", "at": "8.1", "to": "end" },
+        { "name": "data_flight", "at": "2.1", "to": "4.3", "card": { "text": "DEC 17, 1903 · 12 SECONDS · 120 FEET", "voice": "data", "fact": "wright_flight" } },
+        { "name": "card_air", "at": "5.1", "to": "end", "card": { "text": "WE TOOK TO THE AIR.", "voice": "statement" } }
+      ]
+    },
+    {
+      "id": "11_assembly", "obs": 11, "act": "III", "chapter": "THE ASSEMBLY LINE", "dates": "1913", "bars": 4,
+      "hud": { "date": "1913", "coords": "42.41° N 83.10° W", "coordsFact": "coord_highland_park" },
+      "transition": { "type": "match", "beats": 1 },
+      "years": [{ "at": "1.1", "year": 1913 }],
+      "events": [{ "at": "1.1", "year": 1913 }],
+      "cues": [
+        { "name": "drop", "at": "1.1", "beats": 2, "audio": { "type": "impact", "size": "big", "gain": -5 } },
+        { "name": "stations", "at": "1.1", "every": "16th", "count": 64, "beats": 0.25 },
+        { "name": "counter", "at": "2.1", "beats": 6 },
+        { "name": "dot_field", "at": "3.3", "to": "end" },
+        { "name": "data_time", "at": "2.1", "to": "4.1", "card": { "text": "12 H 30 M → 1 H 33 M PER CAR", "voice": "data", "fact": "assembly_time" } },
+        { "name": "data_built", "at": "3.3", "to": "end", "card": { "text": "≈ 15 MILLION", "voice": "data", "fact": "assembly_built" } },
+        { "name": "card_design", "at": "2.1", "to": "4.2", "card": { "text": "ABUNDANCE, BY DESIGN.", "voice": "statement" } }
+      ]
+    },
+    {
+      "id": "12_arsenal", "obs": 12, "act": "IV", "chapter": "ARSENAL OF DEMOCRACY", "dates": "1941–1945", "bars": 8,
+      "hud": { "date": "1941", "coords": "42.24° N 83.53° W", "coordsFact": "coord_willow_run" },
+      "bg": { "crimson": true },
+      "transition": { "type": "cut", "flash": 0.45 },
+      "years": [{ "at": "1.1", "year": 1941 }, { "at": "8.1", "year": 1945 }],
+      "events": [{ "at": "1.1", "year": 1941 }, { "at": "8.1", "year": 1945 }],
+      "cues": [
+        { "name": "slams", "at": "1.1", "every": "half", "count": 16, "beats": 1, "audio": { "type": "stab", "gain": -11 } },
+        { "name": "counters", "at": "3.1", "to": "8.1" },
+        { "name": "card_arsenal", "at": "1.1", "to": "3.3", "card": { "text": "THE GREAT ARSENAL OF DEMOCRACY.", "voice": "statement", "quote": true } },
+        { "name": "attrib_fdr", "at": "1.3", "to": "3.3", "card": { "text": "FRANKLIN ROOSEVELT, 1940", "voice": "data", "fact": "quote_fdr" } },
+        { "name": "data_ships", "at": "4.1", "to": "end", "card": { "text": "2,710 LIBERTY SHIPS", "voice": "data", "fact": "liberty_ships" } },
+        { "name": "data_aircraft", "at": "5.1", "to": "end", "card": { "text": "≈ 300,000 AIRCRAFT", "voice": "data", "fact": "aircraft_ww2" } },
+        { "name": "card_built", "at": "6.3", "to": "end", "card": { "text": "WE BUILT IT.", "voice": "statement" } }
+      ]
+    },
+    {
+      "id": "13_boom", "obs": 13, "act": "IV", "chapter": "THE POSTWAR BOOM", "dates": "1945–1965", "bars": 4,
+      "hud": { "date": "1956", "coords": "40.73° N 73.51° W", "coordsFact": "coord_levittown" },
+      "transition": { "type": "wipe", "beats": 1, "dir": "east" },
+      "years": [{ "at": "1.1", "year": 1947 }, { "at": "2.1", "year": 1956 }, { "at": "4.1", "year": 1960 }],
+      "events": [{ "at": "2.1", "year": 1956 }],
+      "cues": [
+        { "name": "interstate", "at": "1.1", "beats": 4 },
+        { "name": "suburb", "at": "2.1", "beats": 4 },
+        { "name": "charts", "at": ["2.1", "3.1", "4.1"], "beats": 4 },
+        { "name": "transistor_seed", "at": "3.3", "to": "end" },
+        { "name": "data_interstate", "at": "1.1", "to": "2.4", "card": { "text": "1956 · 41,000 MI PLANNED", "voice": "data", "fact": "interstate_1956" } },
+        { "name": "data_life", "at": "3.1", "to": "end", "card": { "text": "LIFE EXPECTANCY ≈ 47 → ≈ 70", "voice": "data", "fact": "life_expectancy" } },
+        { "name": "card_prosperity", "at": "2.1", "to": "end", "card": { "text": "PROSPERITY, AT SCALE.", "voice": "statement" } }
+      ]
+    },
+    {
+      "id": "14_apollo", "obs": 14, "act": "IV", "chapter": "APOLLO", "dates": "1961–1969", "bars": 12,
+      "hud": {
+        "date": "1969",
+        "coords": [
+          { "at": "1.1", "text": "28.61° N 80.60° W", "fact": "coord_lc39a" },
+          { "at": "10.1", "text": "0.67° N 23.47° E", "fact": "coord_tranquility_base" }
+        ]
+      },
+      "bg": { "navy": 0.0, "stars": 0.35 },
+      "transition": { "type": "cut" },
+      "years": [{ "at": "1.1", "year": 1962 }, { "at": "4.3", "year": 1969 }],
+      "events": [{ "at": "1.3", "year": 1962 }, { "at": "11.1", "year": 1969 }],
+      "cues": [
+        { "name": "pad", "at": "1.1", "beats": 2 },
+        { "name": "stack", "at": ["1.1", "1.3", "2.1", "2.3", "3.1", "3.3"], "beats": 2, "audio": { "type": "clank", "gain": -15 } },
+        { "name": "callouts", "at": "4.1", "beats": 2 },
+        { "name": "countdown", "at": "4.3", "every": "beat", "count": 10, "beats": 1, "audio": { "type": "beep", "gain": -13 } },
+        { "name": "arms", "at": "6.1", "beats": 4 },
+        { "name": "ignition", "at": "7.1", "beats": 4, "audio": { "type": "impact", "size": "huge", "gain": 0 } },
+        { "name": "climb", "at": "7.1", "to": "8.3" },
+        { "name": "staging", "at": "8.1", "beats": 2, "audio": { "type": "impact", "size": "small", "gain": -12 } },
+        { "name": "diagram", "at": "8.3", "to": "10.4" },
+        { "name": "tli", "at": "9.1", "beats": 2, "audio": { "type": "whoosh", "gain": -16 } },
+        { "name": "descent", "at": "10.1", "to": "11.1" },
+        { "name": "lock", "at": "10.3", "beats": 1, "audio": { "type": "lock", "gain": -15 } },
+        { "name": "touchdown", "at": "11.1", "beats": 4 },
+        { "name": "earthrise", "at": "12.1", "to": "end", "audio": { "type": "swell", "gain": -12 } },
+        { "name": "card_moon", "at": "1.3", "to": "4.1", "card": { "text": "WE CHOOSE TO GO TO THE MOON", "voice": "statement", "quote": true } },
+        { "name": "attrib_kennedy", "at": "2.1", "to": "4.1", "card": { "text": "KENNEDY, RICE UNIVERSITY, 1962", "voice": "data", "fact": "quote_kennedy" } },
+        { "name": "data_height", "at": "4.1", "to": "6.4", "card": { "text": "363 FT", "voice": "data", "fact": "saturn_v_height" } },
+        { "name": "data_countdown", "at": "4.3", "to": "7.1", "card": { "text": "T-MINUS", "voice": "data", "fact": "structural:countdown" } },
+        { "name": "card_left", "at": "7.3", "to": "9.1", "card": { "text": "WE LEFT THE EARTH.", "voice": "statement" } },
+        { "name": "data_altitude", "at": "10.1", "to": "11.2", "card": { "text": "ALT ≈ 50,000 FT", "voice": "data", "fact": "apollo11_pdi_altitude" } },
+        { "name": "card_eagle", "at": "11.1", "to": "end", "card": { "text": "THE EAGLE HAS LANDED.", "voice": "statement", "quote": true } },
+        { "name": "data_landing", "at": "11.3", "to": "end", "card": { "text": "JULY 20, 1969 · 20:17 UTC", "voice": "data", "fact": "apollo11_landing" } }
+      ]
+    },
+    {
+      "id": "15_silicon", "obs": 15, "act": "V", "chapter": "SILICON", "dates": "1947–1991", "bars": 8,
+      "hud": { "date": "1947", "coords": "40.68° N 74.40° W", "coordsFact": "coord_murray_hill" },
+      "transition": { "type": "cut", "flash": 0.25 },
+      "years": [{ "at": "1.1", "year": 1947 }, { "at": "3.1", "year": 1959 }, { "at": "5.1", "year": 1971 }, { "at": "7.1", "year": 1991 }],
+      "events": [{ "at": "1.1", "year": 1947 }, { "at": "5.1", "year": 1971 }],
+      "cues": [
+        { "name": "transistor", "at": "1.1", "beats": 4 },
+        { "name": "doubling", "at": ["1.1", "3.1", "5.1", "7.1"], "beats": 4 },
+        { "name": "ic", "at": "3.1", "beats": 4 },
+        { "name": "die", "at": "5.1", "beats": 4 },
+        { "name": "curve", "at": "6.1", "to": "8.3" },
+        { "name": "stutter", "at": "7.3", "beats": 1, "audio": { "type": "stutter", "rate": "32nd" } },
+        { "name": "pullback", "at": "7.4", "to": "end" },
+        { "name": "data_transistor", "at": "1.1", "to": "3.1", "card": { "text": "1947", "voice": "data", "fact": "transistor_1947" } },
+        { "name": "card_transistor", "at": "1.1", "to": "3.1", "card": { "text": "THE TRANSISTOR", "voice": "statement" } },
+        { "name": "data_4004", "at": "5.1", "to": "6.4", "card": { "text": "1971 · 2,300 TRANSISTORS", "voice": "data", "fact": "microprocessor_1971" } },
+        { "name": "card_sand", "at": "6.3", "to": "end", "card": { "text": "WE TAUGHT SAND TO COUNT.", "voice": "statement" } }
+      ]
+    },
+    {
+      "id": "16_internet", "obs": 16, "act": "V", "chapter": "THE INTERNET", "dates": "1969–2025", "bars": 8,
+      "hud": { "date": "1969", "coords": "34.07° N 118.44° W", "coordsFact": "coord_ucla" },
+      "transition": { "type": "cut" },
+      "years": [{ "at": "1.1", "year": 1969 }, { "at": "4.1", "year": 1983 }, { "at": "5.1", "year": 1993 }, { "at": "7.1", "year": 2025 }],
+      "events": [{ "at": "1.1", "year": 1969 }, { "at": "4.1", "year": 1983 }, { "at": "5.1", "year": 1993 }],
+      "cues": [
+        { "name": "lo", "at": "1.1", "beats": 4, "audio": { "type": "blip", "count": 2, "gain": -12 } },
+        { "name": "nodes", "at": ["2.1", "3.1", "4.1", "5.1", "6.1"], "beats": 2, "audio": { "type": "thud", "gain": -16 } },
+        { "name": "packets", "at": "2.1", "every": "16th", "count": 80, "beats": 0.5, "audio": { "type": "blip", "gain": -26 } },
+        { "name": "stack", "at": "4.1", "beats": 2 },
+        { "name": "browser", "at": "5.1", "beats": 4 },
+        { "name": "globe", "at": "7.1", "to": "end", "audio": { "type": "impact", "size": "medium", "gain": -9 } },
+        { "name": "data_lo", "at": "1.1", "to": "3.1", "card": { "text": "OCT 29, 1969 · \"LO\"", "voice": "data", "fact": "arpanet_lo" } },
+        { "name": "card_launch", "at": "1.1", "to": "3.1", "card": { "text": "THE OTHER LAUNCH.", "voice": "statement" } },
+        { "name": "data_1983", "at": "4.1", "to": "6.1", "card": { "text": "JAN 1, 1983 · TCP/IP", "voice": "data", "fact": "tcpip_1983" } },
+        { "name": "card_language", "at": "4.1", "to": "6.1", "card": { "text": "ONE LANGUAGE FOR EVERY NETWORK", "voice": "statement" } },
+        { "name": "data_online", "at": "7.1", "to": "end", "card": { "text": "≈ 6 BILLION ONLINE", "voice": "data", "fact": "internet_users_2025" } },
+        { "name": "card_world", "at": "7.1", "to": "end", "card": { "text": "WE CONNECTED THE WORLD.", "voice": "statement" } }
+      ]
+    },
+    {
+      "id": "17_car", "obs": 17, "act": "V", "chapter": "THE CAR, REINVENTED", "dates": "2008–2025", "bars": 4,
+      "hud": { "date": "2025", "coords": "42.33° N 83.05° W", "coordsFact": "coord_detroit" },
+      "transition": { "type": "match", "beats": 1 },
+      "years": [{ "at": "1.1", "year": 2008 }, { "at": "3.1", "year": 2025 }],
+      "events": [{ "at": "3.1", "year": 2025 }],
+      "cues": [
+        { "name": "morph", "at": "1.1", "beats": 3 },
+        { "name": "cells", "at": "1.3", "every": "16th", "count": 24, "beats": 0.5, "audio": { "type": "blip", "gain": -27 } },
+        { "name": "whine", "at": "1.1", "to": "3.1", "audio": { "type": "whine", "gain": -15 } },
+        { "name": "impact", "at": "3.1", "beats": 2, "audio": { "type": "impact", "size": "big", "gain": -6 } },
+        { "name": "chargers", "at": "3.1", "to": "end" },
+        { "name": "card_reinvented", "at": "1.1", "to": "2.4", "card": { "text": "THE CAR, REINVENTED.", "voice": "statement" } },
+        { "name": "card_electric", "at": "3.1", "to": "end", "card": { "text": "ELECTRIC, AT MASS SCALE.", "voice": "statement" } },
+        { "name": "data_ev", "at": "3.1", "to": "end", "card": { "text": "2025 · 1 IN 4 NEW CARS SOLD WORLDWIDE WAS ELECTRIC", "voice": "data", "fact": "ev_share_2025" } }
+      ]
+    },
+    {
+      "id": "18_rockets", "obs": 18, "act": "V", "chapter": "THE ROCKETS COME BACK", "dates": "2015–2024", "bars": 8,
+      "hud": { "date": "2024", "coords": "25.99° N 97.15° W", "coordsFact": "coord_boca_chica" },
+      "bg": { "navy": 0.6, "stars": 0.5 },
+      "transition": { "type": "cut" },
+      "years": [{ "at": "1.1", "year": 2015 }, { "at": "3.1", "year": 2024 }, { "at": "6.1", "year": 2020 }],
+      "events": [{ "at": "2.1", "year": 2015 }, { "at": "4.1", "year": 2024 }, { "at": "6.1", "year": 2003 }, { "at": "7.1", "year": 2020 }],
+      "cues": [
+        { "name": "descent", "at": "1.1", "to": "2.1" },
+        { "name": "landing", "at": "2.1", "beats": 2, "audio": { "type": "thud", "gain": -11 } },
+        { "name": "catch_descent", "at": "3.1", "to": "4.1" },
+        { "name": "catch", "at": "4.1", "beats": 4, "audio": { "type": "catch", "gain": -4 } },
+        { "name": "helix", "at": "6.1", "every": "16th", "count": 48, "beats": 0.5, "audio": { "type": "tick", "gain": -25 } },
+        { "name": "card_back", "at": "2.1", "to": "5.3", "card": { "text": "THE ROCKETS COME BACK.", "voice": "statement" } },
+        { "name": "data_landings", "at": "2.3", "to": "5.3", "card": { "text": "DEC 2015 · LANDED   OCT 2024 · CAUGHT", "voice": "data", "fact": "booster_2015_2024" } },
+        { "name": "card_code", "at": "6.1", "to": "end", "card": { "text": "WE READ THE CODE OF LIFE.", "voice": "statement" } },
+        { "name": "data_genome", "at": "6.3", "to": "end", "card": { "text": "GENOME 2003 · mRNA VACCINES 2020", "voice": "data", "fact": "genome_mrna" } }
+      ]
+    },
+    {
+      "id": "19_ai", "obs": 19, "act": "V", "chapter": "GENERATIVE AI", "dates": "2017–2026", "bars": 8,
+      "hud": { "date": "2017", "coords": "37.77° N 122.42° W", "coordsFact": "coord_san_francisco" },
+      "transition": { "type": "cut" },
+      "years": [{ "at": "1.1", "year": 2017 }, { "at": "5.1", "year": 2026 }],
+      "events": [{ "at": "2.1", "year": 2017 }],
+      "cues": [
+        { "name": "hall", "at": "1.1", "beats": 4 },
+        { "name": "attention", "at": "2.1", "to": "4.1" },
+        { "name": "layers", "at": "4.1", "beats": 4 },
+        { "name": "tokens", "at": "4.3", "every": "16th", "count": 40, "beats": 0.5, "audio": { "type": "blip", "gain": -25 } },
+        { "name": "drawings", "at": "5.1", "to": "7.4" },
+        { "name": "impact", "at": "5.1", "beats": 4, "audio": { "type": "impact", "size": "huge", "gain": -2 } },
+        { "name": "compute_curve", "at": "7.1", "to": "end" },
+        { "name": "data_2017", "at": "2.1", "to": "3.1", "card": { "text": "2017", "voice": "data", "fact": "transformer_2017" } },
+        { "name": "card_attention", "at": "2.1", "to": "3.1", "card": { "text": "ATTENTION.", "voice": "statement" } },
+        { "name": "card_machines", "at": "3.1", "to": "4.4", "card": { "text": "MACHINES THAT WRITE, DRAW AND CODE.", "voice": "statement" } },
+        { "name": "card_think", "at": "5.1", "to": "7.1", "card": { "text": "THEN WE TAUGHT IT TO THINK.", "voice": "statement" } },
+        { "name": "data_compute", "at": "7.1", "to": "end", "card": { "text": "TRAINING COMPUTE ≈ 4–5× PER YEAR", "voice": "data", "fact": "ai_compute_growth" } }
+      ]
+    },
+    {
+      "id": "20_250", "obs": 20, "act": "V", "chapter": "250", "chapterFact": "structural:anniversary", "dates": "1776–2026", "bars": 4,
+      "hud": { "date": "2026", "coords": "39.95° N 75.15° W", "coordsFact": "coord_independence_hall" },
+      "bg": { "navy": 0.45, "stars": 0.6 },
+      "transition": { "type": "dissolve", "beats": 1 },
+      "years": [{ "at": "1.1", "year": 2026 }],
+      "events": [{ "at": "1.3", "year": 2026 }],
+      "cues": [
+        { "name": "ruler_rises", "at": "1.1", "beats": 2 },
+        { "name": "all_dots", "at": "1.3", "beats": 2, "audio": { "type": "starburst", "gain": -12 } },
+        { "name": "numerals", "at": "2.1", "beats": 4 },
+        { "name": "starbursts", "at": ["2.1", "2.3", "3.1"], "beats": 2, "audio": { "type": "starburst", "gain": -16 } },
+        { "name": "artemis", "at": "3.1", "to": "end" },
+        { "name": "riser", "at": "3.1", "to": "end", "audio": { "type": "riser", "gain": -10 } },
+        { "name": "card_250", "at": "2.1", "to": "3.3", "card": { "text": "250 YEARS.", "voice": "statement", "fact": "structural:anniversary" } },
+        { "name": "data_artemis", "at": "3.1", "to": "end", "card": { "text": "APRIL 2026 · 252,756 MI", "voice": "data", "fact": "artemis2_distance" } },
+        { "name": "card_farther", "at": "3.1", "to": "end", "card": { "text": "FARTHER THAN ANY HUMANS, EVER.", "voice": "statement" } }
+      ]
+    },
+    {
+      "id": "21_future", "obs": 21, "act": "V", "chapter": "THE OPEN FUTURE", "dates": "2026–", "bars": 8,
+      "hud": { "date": "2026–", "coords": "--.--° N ---.--° W", "coordsFact": "structural:open_coordinates" },
+      "bg": { "navy": 0.5, "stars": 0.7, "crimson": true },
+      "transition": { "type": "wipe", "beats": 1, "dir": "east" },
+      "years": [{ "at": "1.1", "year": 2026 }],
+      "events": [],
+      "cues": [
+        { "name": "plates", "at": ["1.1", "3.1", "5.1", "7.1"], "beats": 4, "audio": { "type": "impact", "size": "small", "gain": -14 } },
+        { "name": "riser", "at": "7.1", "to": "end", "audio": { "type": "riser", "gain": -9 } },
+        { "name": "card_energy", "at": "1.1", "to": "2.4", "card": { "text": "ABUNDANT ENERGY.", "voice": "statement" } },
+        { "name": "card_discovery", "at": "3.1", "to": "4.4", "card": { "text": "DISCOVERY AT MACHINE SPEED.", "voice": "statement" } },
+        { "name": "card_world", "at": "5.1", "to": "6.4", "card": { "text": "A SECOND WORLD.", "voice": "statement" } },
+        { "name": "card_curve", "at": "7.1", "to": "end", "card": { "text": "THE CURVE BENDS UP.", "voice": "statement" } },
+        { "name": "data_kardashev", "at": "7.1", "to": "end", "card": { "text": "KARDASHEV TARGET · 0.73 → 1.0", "voice": "data", "fact": "kardashev" } }
+      ]
+    },
+    {
+      "id": "22_coda", "obs": 22, "act": "CODA", "chapter": "", "dates": "1776–∞", "bars": 8,
+      "hud": { "date": "1776–∞", "coords": "39.95° N 75.15° W", "coordsFact": "coord_independence_hall" },
+      "transition": { "type": "cut" },
+      "years": [{ "at": "1.1", "year": 2026 }, { "at": "4.3", "year": 1776 }, { "at": "5.1", "year": 2026 }],
+      "events": [],
+      "cues": [
+        { "name": "rewind", "at": "1.1", "every": "beat", "count": 15, "beats": 1, "audio": { "type": "reverse_hit", "gain": -11 } },
+        { "name": "rewind_sweep", "at": "1.1", "to": "4.4", "audio": { "type": "tape_rewind", "gain": -16 } },
+        { "name": "black", "at": "4.4", "beats": 1 },
+        { "name": "final_chord", "at": "5.1", "to": "8.3", "audio": { "type": "impact", "size": "huge", "gain": -4 } },
+        { "name": "collapse", "at": "5.1", "beats": 4 },
+        { "name": "runoff", "at": "6.1", "to": "8.3" },
+        { "name": "card_continues", "at": "5.1", "to": "6.3", "card": { "text": "THE EXPERIMENT CONTINUES.", "voice": "statement" } },
+        { "name": "card_onward", "at": "6.4", "to": "8.3", "card": { "text": "ONWARD.", "voice": "final" } },
+        { "name": "data_signoff", "at": "7.1", "to": "8.3", "card": { "text": "THE AMERICAN EXPERIMENT · 1776 — ∞", "voice": "data", "fact": "date_declaration" } }
+      ]
+    }
+  ]
+}

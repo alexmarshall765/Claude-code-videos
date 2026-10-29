@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The American Experiment</title>
+<link rel="icon" href="data:,">
+<style>
+  /* Bundled faces, SIL Open Font License (see fonts/OFL-*.txt). font-display: block so no
+     frame is ever drawn in a fallback face. */
+  @font-face { font-family: "Cormorant Garamond"; src: url(fonts/CormorantGaramond-600.woff2) format("woff2"); font-weight: 600; font-display: block; }
+  @font-face { font-family: "Cormorant Garamond"; src: url(fonts/CormorantGaramond-700.woff2) format("woff2"); font-weight: 700; font-display: block; }
+  @font-face { font-family: "Jost"; src: url(fonts/Jost-500.woff2) format("woff2"); font-weight: 500; font-display: block; }
+  @font-face { font-family: "JetBrains Mono"; src: url(fonts/JetBrainsMono-400.woff2) format("woff2"); font-weight: 400; font-display: block; }
+  @font-face { font-family: "JetBrains Mono"; src: url(fonts/JetBrainsMono-600.woff2) format("woff2"); font-weight: 600; font-display: block; }
+
+  html, body { margin: 0; height: 100%; background: #07080B; color: #D4AF37; font: 13px "JetBrains Mono", monospace; }
+  #stage { position: fixed; inset: 0 0 52px 0; display: flex; align-items: center; justify-content: center; }
+  canvas { max-width: 100%; max-height: 100%; aspect-ratio: 16 / 9; background: #07080B; }
+  #ui { position: fixed; left: 0; right: 0; bottom: 0; height: 52px; display: flex; gap: 12px; align-items: center; padding: 0 16px; box-sizing: border-box; border-top: 1px solid rgba(212,175,55,0.25); }
+  #ui button, #ui select { background: none; border: 1px solid rgba(212,175,55,0.5); color: #F6D77A; font: inherit; padding: 6px 12px; cursor: pointer; }
+  #ui select { background: #07080B; }
+  #ui input[type=range] { flex: 1; accent-color: #D4AF37; }
+  #clock { min-width: 210px; }
+  body.render #ui, body.still #ui { display: none; }
+  body.render #stage, body.still #stage { inset: 0; }
+  body.render canvas, body.still canvas { max-width: none; max-height: none; }
+  .err { position: fixed; top: 10px; left: 10px; color: #F6D77A; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<div id="stage"><canvas id="c" width="1920" height="1080"></canvas></div>
+<div id="ui">
+  <button id="play">PLAY</button>
+  <span id="clock">0:00.00</span>
+  <input id="scrub" type="range" min="0" max="296" step="0.0166667" value="0">
+  <select id="jump"></select>
+  <audio id="audio" preload="auto"></audio>
+</div>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>

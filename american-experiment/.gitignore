@@ -1,0 +1,7 @@
+out/
+node_modules/
+audio/score.wav
+audio/score_external.wav
+audio/stems/
+*.mp4
+*.mov
