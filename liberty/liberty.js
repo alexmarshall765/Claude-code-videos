@@ -1231,7 +1231,7 @@
   function sExpansion(t) {
     const proj = makeProj(960, 590, 26);
     graticule(proj, 0.14, seg(t, 0, 1.2));
-    // The frontier meridian sweeps west from the Appalachians to the Pacific.
+    // The frontier meridian sweeps west from the Mississippi to the Pacific.
     const q = seg(t, 0.9, 7.2, E.inOut);
     const frontier = lerp(-89.6, -125.5, q); // 1783: the Mississippi was the western border
     const year = Math.round(lerp(1783, 1853, q));
@@ -1253,8 +1253,13 @@
     pen(C.bright, 1, 2, 10);
     polyP(US_OUTLINE.map(([a, b]) => proj(a, b)), seg(t, 0, 1.6), false, false);
     noGlow();
-    // The frontier line itself
-    if (q > 0 && q < 1) { pen(C.white, 0.8, 1.6, 18); polyP(sample(u => proj(frontier, lerp(24, 50, u)), 10), 1, false, false); noGlow(); }
+    // The frontier line itself, kept inside the coastline so it never crosses the ledger
+    if (q > 0 && q < 1) {
+      ctx.save();
+      outlinePath(proj); ctx.clip();
+      pen(C.white, 0.8, 1.6, 18); polyP(sample(u => proj(frontier, lerp(20, 54, u)), 10), 1, false, false); noGlow();
+      ctx.restore();
+    }
     // Lewis & Clark, 1804–1806
     const lc = seg(t, 2.2, 5.6, E.linear);
     pen(C.red, 1, 2.2, 10);
@@ -1265,7 +1270,10 @@
     const stl = proj(-90.2, 38.6), fc = proj(-123.9, 46.1);
     annot('ST. LOUIS · 1804', ...stl, stl[0] - 60, stl[1] + 110, seg(t, 2.0, 2.6), 'right');
     annot('FORT CLATSOP · 1805', ...fc, fc[0] + 10, fc[1] - 80, seg(t, 5.4, 6.0), 'left');
-    txt('LEWIS & CLARK', proj(-104, 48.6)[0], proj(-104, 48.6)[1] - 20, { size: 13, track: 3, rgb: C.red, a: seg(t, 3.0, 3.6) });
+    // Label sits just above the northern border (drawn as a straight chord along the 49th parallel)
+    const nb0 = proj(-123, 49), nb1 = proj(-95.2, 49), lcx = proj(-104, 49)[0];
+    const lcy = lerp(nb0[1], nb1[1], (lcx - nb0[0]) / (nb1[0] - nb0[0])) - 22;
+    txt('LEWIS & CLARK', lcx, lcy, { size: 13, track: 3, rgb: C.red, a: seg(t, 3.0, 3.6) });
     // Acquisitions light up as the frontier passes.
     let area = ACQ[0][1];
     ACQ.forEach(([y, a, label, lo, la], i) => {
