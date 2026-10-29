@@ -160,18 +160,19 @@ export function rollingNumber(g, value, x, y, o = {}) {
 // Engraved caps: glyphs filled with fine diagonal hatching and outlined, like letters
 // cut into a plate. Patterns are cached per context.
 const hatchPatterns = new WeakMap();
-function hatchPattern(g, color, gap) {
+function hatchPattern(g, color, gap, vertical = false) {
   let byKey = hatchPatterns.get(g);
   if (!byKey) { byKey = new Map(); hatchPatterns.set(g, byKey); }
-  const key = `${color}|${gap}`;
+  const key = `${color}|${gap}|${vertical}`;
   if (byKey.has(key)) return byKey.get(key);
-  const T = Math.max(3, Math.round(gap * Math.SQRT2));
+  const T = Math.max(3, Math.round(vertical ? gap : gap * Math.SQRT2));
   const c = document.createElement('canvas');
   c.width = c.height = T;
   const t = c.getContext('2d');
   t.strokeStyle = rgba(color, 1); t.lineWidth = 1.1;
   t.beginPath();
-  for (const k of [-T, 0, T]) { t.moveTo(k - 1, T + 1); t.lineTo(k + T + 1, -1); }
+  if (vertical) { t.moveTo(T / 2, 0); t.lineTo(T / 2, T); }
+  else for (const k of [-T, 0, T]) { t.moveTo(k - 1, T + 1); t.lineTo(k + T + 1, -1); }
   t.stroke();
   const pat = g.createPattern(c, 'repeat');
   byKey.set(key, pat);
@@ -188,7 +189,7 @@ export function engraved(g, str, x, y, o = {}) {
   const x0 = (o.align || 'center') === 'center' ? x - L.width / 2 : x;
   setFont(g, size, face, weight);
   g.textAlign = 'left'; g.textBaseline = 'middle';
-  const pat = hatchPattern(g, o.hatchColor || 'GOLD', o.gap ?? 4);
+  const pat = hatchPattern(g, o.hatchColor || 'GOLD', o.gap ?? 4, !!o.vertical);
   g.lineJoin = 'round';
   for (let i = 0; i < L.chars.length; i++) {
     const k = o.reveal ? o.reveal(i, L.chars.length) : 1;

@@ -403,9 +403,9 @@
         { "name": "starbursts", "at": ["2.1", "2.3", "3.1"], "beats": 2, "audio": { "type": "starburst", "gain": -16 } },
         { "name": "artemis", "at": "3.1", "to": "end" },
         { "name": "riser", "at": "3.1", "to": "end", "audio": { "type": "riser", "gain": -10 } },
-        { "name": "card_250", "at": "2.1", "to": "3.3", "card": { "text": "250 YEARS.", "voice": "statement", "fact": "structural:anniversary" } },
+        { "name": "card_250", "at": "2.1", "to": "3.1", "card": { "text": "250 YEARS.", "voice": "statement", "fact": "structural:anniversary" } },
         { "name": "data_artemis", "at": "3.1", "to": "end", "card": { "text": "APRIL 2026 · 252,756 MI", "voice": "data", "fact": "artemis2_distance" } },
-        { "name": "card_farther", "at": "3.1", "to": "end", "card": { "text": "FARTHER THAN ANY HUMANS, EVER.", "voice": "statement" } }
+        { "name": "card_farther", "at": "3.2", "to": "end", "card": { "text": "FARTHER THAN ANY HUMANS, EVER.", "voice": "statement" } }
       ]
     },
     {

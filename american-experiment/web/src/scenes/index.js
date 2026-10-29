@@ -15,9 +15,15 @@ import arsenal from './12_arsenal.js';
 import boom from './13_boom.js';
 import apollo from './14_apollo.js';
 import silicon from './15_silicon.js';
+import internet from './16_internet.js';
+import car from './17_car.js';
+import rockets from './18_rockets.js';
+import ai from './19_ai.js';
+import twoFifty from './20_250.js';
+import future from './21_future.js';
 import { placeholder } from './placeholder.js';
 
-const built = [prologue, title, founding, constitution, expansion, roads, liberty, steel, light, flight, assembly, arsenal, boom, apollo, silicon];
+const built = [prologue, title, founding, constitution, expansion, roads, liberty, steel, light, flight, assembly, arsenal, boom, apollo, silicon, internet, car, rockets, ai, twoFifty, future];
 
 export function sceneModules(timeline) {
   const byId = Object.fromEntries(built.map(m => [m.id, m]));
