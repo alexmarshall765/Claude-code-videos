@@ -134,3 +134,33 @@ export function bulb(g, cx, cy, s, o = {}) {
   for (let k = 0; k < 5; k++) stroke(g, [P(-0.21, b0 + 0.06 + k * 0.075, dBase), P(0.21, b0 + 0.1 + k * 0.075, dBase)], 1, { pen: pen(0.6, 1.1), tip: false });
   stroke(g, [P(-0.1, b0 + 0.42, dBase), P(-0.06, b0 + 0.52, dBase), P(0.06, b0 + 0.52, dBase), P(0.1, b0 + 0.42, dBase)], 1, { pen: pen(0.9, 1.4), tip: false });
 }
+
+/**
+ * The 1947 point-contact transistor in elevation: a germanium block on its base, a
+ * plastic wedge with two gold contacts pressed onto it, a spring above, three leads.
+ * s ≈ 1 is about 200 px tall; centred on (cx, cy).
+ */
+export function transistor(g, cx, cy, s, o = {}) {
+  const a = o.alpha ?? 1, lw = o.lw ?? 1, p = o.p ?? 1;
+  if (a <= 0 || p <= 0) return;
+  const P = (x, y) => [cx + x * s, cy + y * s];
+  const pen = (c, al, w) => ({ color: c, alpha: al * a, width: w * lw });
+  const q = k => Math.max(0, Math.min(1, p * 5 - k));
+  // Base and germanium block
+  stroke(g, [P(-90, 70), P(90, 70), P(90, 96), P(-90, 96)], q(0), { pen: pen('GOLD', 0.9, 1.6), closed: true, tip: false });
+  stroke(g, [P(-46, 70), P(46, 70), P(46, 30), P(-46, 30)], q(0.5), { pen: pen('GOLD_HOT', 1, 2), closed: true, tip: false });
+  // The wedge, point down on the germanium, with its gold foil contacts
+  stroke(g, [P(-44, -60), P(44, -60), P(2, 28), P(-2, 28)], q(1.5), { pen: pen('GOLD', 0.95, 1.8), closed: true, tip: false });
+  stroke(g, [P(-30, -60), P(-1, 28)], q(2), { pen: pen('GOLD_HOT', 1, 2.4), tip: false });
+  stroke(g, [P(30, -60), P(1, 28)], q(2), { pen: pen('GOLD_HOT', 1, 2.4), tip: false });
+  // Spring pressing the wedge down
+  const spring = [];
+  for (let i = 0; i <= 40; i++) spring.push(P(8 * Math.sin(i * 0.95), -64 - i * 1.6));
+  stroke(g, spring, q(2.8), { pen: pen('GOLD', 0.8, 1.2), tip: false });
+  stroke(g, [P(-30, -132), P(30, -132)], q(3), { pen: pen('GOLD', 0.9, 1.6), tip: false });
+  // Leads: emitter, collector, base
+  stroke(g, [P(-30, -60), P(-70, -100), P(-70, -150)], q(3.5), { pen: pen('GOLD', 0.85, 1.4), tip: false });
+  stroke(g, [P(30, -60), P(70, -100), P(70, -150)], q(3.5), { pen: pen('GOLD', 0.85, 1.4), tip: false });
+  stroke(g, [P(0, 96), P(0, 140)], q(3.8), { pen: pen('GOLD', 0.85, 1.4), tip: false });
+  if (o.glint) glow(g, cx, cy + 28 * s, 30 * s + 10, 'GOLD_HOT', 0.6 * o.glint * a);
+}

@@ -21,3 +21,9 @@ export const MOTIF = {
   cx: 960, cy: 380, r: 220,
   zoomAbout: z => zoomAbout(960, 380, z),
 };
+
+/** Circle-to-circle match: OBS 10's and OBS 16's closing globes become the drive gear that opens OBS 11 and OBS 17. */
+export const MATCH = { cx: 960, cy: 560, r: 230 };
+
+/** The 1947 transistor planted small in OBS 13's corner, picked up again by OBS 15. */
+export const SEED = { x: 1748, y: 262, s: 0.16 };
