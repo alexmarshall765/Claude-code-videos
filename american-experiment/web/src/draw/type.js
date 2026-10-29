@@ -156,3 +156,54 @@ export function rollingNumber(g, value, x, y, o = {}) {
     x0, x1: x0 + total, y0: y - size / 2, y1: y + size / 2,
   });
 }
+
+// Engraved caps: glyphs filled with fine diagonal hatching and outlined, like letters
+// cut into a plate. Patterns are cached per context.
+const hatchPatterns = new WeakMap();
+function hatchPattern(g, color, gap) {
+  let byKey = hatchPatterns.get(g);
+  if (!byKey) { byKey = new Map(); hatchPatterns.set(g, byKey); }
+  const key = `${color}|${gap}`;
+  if (byKey.has(key)) return byKey.get(key);
+  const T = Math.max(3, Math.round(gap * Math.SQRT2));
+  const c = document.createElement('canvas');
+  c.width = c.height = T;
+  const t = c.getContext('2d');
+  t.strokeStyle = rgba(color, 1); t.lineWidth = 1.1;
+  t.beginPath();
+  for (const k of [-T, 0, T]) { t.moveTo(k - 1, T + 1); t.lineTo(k + T + 1, -1); }
+  t.stroke();
+  const pat = g.createPattern(c, 'repeat');
+  byKey.set(key, pat);
+  return pat;
+}
+
+/** Engraved display caps (statement face): hatched fill plus an outline, logged like text(). */
+export function engraved(g, str, x, y, o = {}) {
+  const v = voiceOf(o.voice || 'title');
+  const size = o.size || 160, face = v.face, weight = o.weight || v.weight, track = o.track ?? v.track;
+  const alpha = o.alpha ?? 1;
+  if (alpha <= 0.002) return 0;
+  const L = layout(g, str, size, face, weight, track);
+  const x0 = (o.align || 'center') === 'center' ? x - L.width / 2 : x;
+  setFont(g, size, face, weight);
+  g.textAlign = 'left'; g.textBaseline = 'middle';
+  const pat = hatchPattern(g, o.hatchColor || 'GOLD', o.gap ?? 4);
+  g.lineJoin = 'round';
+  for (let i = 0; i < L.chars.length; i++) {
+    const k = o.reveal ? o.reveal(i, L.chars.length) : 1;
+    if (k <= 0) continue;
+    const gx = x0 + L.xs[i], gy = y + (1 - k) * size * (o.rise ?? 0.12);
+    g.globalAlpha = alpha * k * (o.fillAlpha ?? 0.8);
+    g.fillStyle = pat;
+    g.fillText(L.chars[i], gx, gy);
+    g.globalAlpha = 1;
+    g.strokeStyle = rgba(o.color || 'GOLD_HOT', alpha * k);
+    g.lineWidth = o.outline ?? 1.8;
+    g.strokeText(L.chars[i], gx, gy);
+  }
+  if (o.log !== false) {
+    logText(g, o.scale || 1, { text: str, voice: 'statement', fact: o.fact, size, alpha, x0, x1: x0 + L.width, y0: y - size * 0.5, y1: y + size * 0.5 });
+  }
+  return L.width;
+}

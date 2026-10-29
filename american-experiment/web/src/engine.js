@@ -221,6 +221,11 @@ export class Film {
         film.applyCamera(layer, s.cam, 1);
       },
       screen(fn) { s.parallax(0, fn); },
+      /** Screen position of a world point under the scene camera. */
+      project(x, y) {
+        const c = s.cam, z = c.zoom, r = c.rot || 0, dx = (x - c.x) * z, dy = (y - c.y) * z;
+        return [W / 2 + dx * Math.cos(r) - dy * Math.sin(r), H / 2 + dx * Math.sin(r) + dy * Math.cos(r)];
+      },
     };
     return s;
   }

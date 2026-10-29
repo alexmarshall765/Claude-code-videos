@@ -36,6 +36,8 @@ export class Timeline {
       s.coordKeys = Array.isArray(co)
         ? co.map(k => ({ t: this.time(k.at, s), text: k.text, fact: k.fact }))
         : [{ t: s.start, text: co || '', fact: s.hud && s.hud.coordsFact }];
+      const da = s.hud && s.hud.date;
+      s.dateKeys = Array.isArray(da) ? da.map(k => ({ t: this.time(k.at, s), text: k.text })) : [{ t: s.start, text: da || '' }];
       s.marker = s.act === 'CODA' || !s.chapter ? this.acts[s.act] : `${this.acts[s.act]} — ${s.chapter}`;
     }
   }

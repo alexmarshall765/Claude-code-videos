@@ -75,8 +75,9 @@ export class Hud {
       const reveal = changed ? (i => ease.out(clamp((since - i * 0.012) / 0.28))) : null;
       text(g, cur.marker, 104, 82, { voice: 'marker', size: 24, align: 'left', alpha: 0.9 * ta, reveal, rise: 0.3, scale: S, fact: cur.chapterFact });
       const coord = cur.coordKeys.filter(k => T >= k.t - 1e-6).pop() || cur.coordKeys[0];
+      const date = cur.dateKeys.filter(k => T >= k.t - 1e-6).pop() || cur.dateKeys[0];
       const ck = clamp((T - coord.t) / 0.3);
-      const obs = `OBS. ${pad2(cur.obs)} · ${cur.hud.date} · `;
+      const obs = `OBS. ${pad2(cur.obs)} · ${date.text} · `;
       const coordW = textWidth(g, coord.text, { voice: 'data', size: 24 });
       text(g, obs, 1816 - coordW, 82, {
         voice: 'data', size: 24, align: 'right', alpha: 0.85 * ta, scale: S,

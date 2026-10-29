@@ -2,10 +2,17 @@
 
 import prologue from './01_prologue.js';
 import title from './02_title.js';
+import founding from './03_founding.js';
+import constitution from './04_constitution.js';
+import expansion from './05_expansion.js';
+import roads from './06_roads.js';
+import liberty from './07_liberty.js';
+import steel from './08_steel.js';
+import light from './09_light.js';
 import apollo from './14_apollo.js';
 import { placeholder } from './placeholder.js';
 
-const built = [prologue, title, apollo];
+const built = [prologue, title, founding, constitution, expansion, roads, liberty, steel, light, apollo];
 
 export function sceneModules(timeline) {
   const byId = Object.fromEntries(built.map(m => [m.id, m]));

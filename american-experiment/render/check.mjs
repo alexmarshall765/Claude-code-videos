@@ -143,7 +143,7 @@ const badFonts = fonts.filter(f => f.status !== 'loaded');
 badFonts.length ? fail(`fonts not loaded: ${badFonts.map(f => f.family + ' ' + f.weight).join(', ')}`) : ok(`${fonts.length} font faces loaded`);
 
 const stride = Number(opt('stride', 15));
-const sizeBad = new Map(), safeBad = new Map(), factBad = new Map();
+const sizeBad = new Map(), safeBad = new Map(), factBad = new Map(), factUnverified = new Map();
 let texts = 0;
 const t0 = Date.now();
 for (let n = 0; n < tl.frames; n += stride) {
@@ -156,6 +156,7 @@ for (let n = 0; n < tl.frames; n += stride) {
     if (tx.px < 24 - 0.5) sizeBad.set(key, `${tx.px.toFixed(1)} px at f${n}`);
     if (x0 < SAFE.x0 - 0.5 || y0 < SAFE.y0 - 0.5 || x1 > SAFE.x1 + 0.5 || y1 > SAFE.y1 + 0.5) safeBad.set(key, `[${tx.box.map(v => v.toFixed(0)).join(', ')}] at f${n}`);
     if (/\d/.test(tx.text) && !factKnown(tx.fact)) factBad.set(key, `f${n}`);
+    for (const f of [].concat(tx.fact || [])) if (facts.facts[f] && !facts.facts[f].verified) factUnverified.set(key, `${f} at f${n}`);
   }
   if (n % (stride * 200) === 0) process.stdout.write(`\r    sampled frame ${n}/${tl.frames}   `);
 }
@@ -164,7 +165,8 @@ const report = (m, label) => { if (!m.size) return true; fail(`${label}: ${[...m
 const a1 = report(sizeBad, 'text smaller than 24 px');
 const a2 = report(safeBad, 'text outside the 90 % safe area');
 const a3 = report(factBad, 'numbers on screen without a fact');
-if (a1 && a2 && a3) ok(`${texts} text draws in ${Math.ceil(tl.frames / stride)} sampled frames: all ≥ 24 px, inside the safe area, every number sourced (${((Date.now() - t0) / 1000).toFixed(0)} s)`);
+const a4 = report(factUnverified, 'text citing an unverified fact');
+if (a1 && a2 && a3 && a4) ok(`${texts} text draws in ${Math.ceil(tl.frames / stride)} sampled frames: all ≥ 24 px, inside the safe area, every number sourced and verified (${((Date.now() - t0) / 1000).toFixed(0)} s)`);
 
 // Determinism: frame 9000 from two separate pages must be byte-identical.
 const page2 = await openFilm(ctx);

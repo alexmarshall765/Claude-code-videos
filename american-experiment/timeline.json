@@ -64,8 +64,8 @@
         { "name": "page_grid", "at": "1.1", "every": "beat", "count": 4, "beats": 2, "audio": { "type": "pen", "gain": -20 } },
         { "name": "quill", "at": "2.1", "every": "beat", "count": 8, "beats": 1, "audio": { "type": "pen", "gain": -21 } },
         { "name": "equal_small", "at": "3.3", "beats": 4 },
-        { "name": "signatures", "at": "3.1", "every": "16th", "count": 32, "beats": 1, "audio": { "type": "glint", "gain": -30 } },
-        { "name": "population", "at": "4.1", "beats": 2 },
+        { "name": "signatures", "at": "3.1", "every": "32nd", "count": 56, "beats": 0.5, "audio": { "type": "glint", "gain": -31 } },
+        { "name": "population", "at": "4.1", "beats": 2, "audio": { "type": "thud", "gain": -14 } },
         { "name": "stars", "at": "5.1", "every": "beat", "count": 13, "beats": 1, "audio": { "type": "star", "gain": -19 } },
         { "name": "card_truths", "at": "2.1", "to": "4.1", "card": { "text": "WE HOLD THESE TRUTHS TO BE SELF-EVIDENT", "voice": "statement", "quote": true } },
         { "name": "attrib_declaration", "at": "2.3", "to": "4.1", "card": { "text": "DECLARATION OF INDEPENDENCE, 1776", "voice": "data", "fact": "date_declaration" } },
@@ -96,7 +96,7 @@
     },
     {
       "id": "05_expansion", "obs": 5, "act": "II", "chapter": "EXPANSION", "dates": "1785–1848", "bars": 8,
-      "hud": { "date": "1803", "coords": "38.80° N 90.11° W", "coordsFact": "coord_camp_dubois" },
+      "hud": { "date": "1803", "coords": "38.80° N 90.10° W", "coordsFact": "coord_camp_dubois" },
       "transition": { "type": "wipe", "beats": 1, "dir": "west" },
       "years": [{ "at": "1.1", "year": 1785 }, { "at": "5.1", "year": 1803 }, { "at": "6.1", "year": 1819 }, { "at": "7.1", "year": 1845 }, { "at": "7.3", "year": 1846 }, { "at": "8.1", "year": 1848 }],
       "events": [{ "at": "5.1", "year": 1803 }, { "at": "7.1", "year": 1845 }, { "at": "8.1", "year": 1848 }],
@@ -121,9 +121,9 @@
         { "name": "road", "at": "1.1", "beats": 4 },
         { "name": "lock_rise", "at": "2.1", "beats": 4, "audio": { "type": "impact", "size": "medium", "gain": -9 } },
         { "name": "paddle", "at": "2.3", "beats": 4 },
-        { "name": "morse", "at": "3.3", "to": "4.4", "audio": { "type": "morse", "text": "USA", "unit": "16th", "freq": 1000, "gain": -17 } },
+        { "name": "morse", "at": "3.3", "to": "end", "audio": { "type": "morse", "text": "USA", "unit": "16th", "freq": 1000, "gain": -17 } },
         { "name": "card_roads", "at": "1.1", "to": "2.2", "card": { "text": "WE BUILT THE ROADS.", "voice": "statement" } },
-        { "name": "card_canals", "at": "2.3", "to": "4.1", "card": { "text": "THEN THE CANALS. THEN THE WIRES.", "voice": "statement" } },
+        { "name": "card_canals", "at": "2.3", "to": "3.4.3", "card": { "text": "THEN THE CANALS. THEN THE WIRES.", "voice": "statement" } },
         { "name": "card_wrought", "at": "4.1", "to": "07_liberty@1.2", "card": { "text": "WHAT HATH GOD WROUGHT", "voice": "statement", "quote": true } },
         { "name": "attrib_telegraph", "at": "4.1", "to": "07_liberty@1.2", "card": { "text": "FIRST LONG-DISTANCE TELEGRAPH, 1844", "voice": "data", "fact": "telegraph_1844" } }
       ]
@@ -162,7 +162,7 @@
         { "name": "steel_curve", "at": "8.1", "beats": 4 },
         { "name": "card_one_line", "at": "3.1", "to": "4.2", "card": { "text": "ONE CONTINENT, ONE LINE.", "voice": "statement" } },
         { "name": "data_1869", "at": "3.1", "to": "4.2", "card": { "text": "MAY 10, 1869 · PROMONTORY SUMMIT", "voice": "data", "fact": "railroad_1869" } },
-        { "name": "data_span", "at": "6.1", "to": "8.1", "card": { "text": "MAIN SPAN 1,595.5 FT", "voice": "data", "fact": "brooklyn_span" } },
+        { "name": "data_span", "at": "6.1", "to": "7.3", "card": { "text": "MAIN SPAN 1,595.5 FT", "voice": "data", "fact": "brooklyn_span" } },
         { "name": "card_steel", "at": "5.1", "to": "6.2", "card": { "text": "STEEL.", "voice": "statement" } },
         { "name": "card_joined", "at": "7.1", "to": "end", "card": { "text": "WE JOINED A CONTINENT.", "voice": "statement" } }
       ]
@@ -216,7 +216,7 @@
     },
     {
       "id": "12_arsenal", "obs": 12, "act": "IV", "chapter": "ARSENAL OF DEMOCRACY", "dates": "1941–1945", "bars": 8,
-      "hud": { "date": "1941", "coords": "42.24° N 83.53° W", "coordsFact": "coord_willow_run" },
+      "hud": { "date": "1941", "coords": "42.24° N 83.55° W", "coordsFact": "coord_willow_run" },
       "bg": { "crimson": true },
       "transition": { "type": "cut", "flash": 0.45 },
       "years": [{ "at": "1.1", "year": 1941 }, { "at": "8.1", "year": 1945 }],
@@ -235,8 +235,8 @@
       "id": "13_boom", "obs": 13, "act": "IV", "chapter": "THE POSTWAR BOOM", "dates": "1945–1965", "bars": 4,
       "hud": { "date": "1956", "coords": "40.73° N 73.51° W", "coordsFact": "coord_levittown" },
       "transition": { "type": "wipe", "beats": 1, "dir": "east" },
-      "years": [{ "at": "1.1", "year": 1947 }, { "at": "2.1", "year": 1956 }, { "at": "4.1", "year": 1960 }],
-      "events": [{ "at": "2.1", "year": 1956 }],
+      "years": [{ "at": "1.1", "year": 1956 }, { "at": "3.1", "year": 1960 }],
+      "events": [{ "at": "1.1", "year": 1956 }],
       "cues": [
         { "name": "interstate", "at": "1.1", "beats": 4 },
         { "name": "suburb", "at": "2.1", "beats": 4 },
@@ -286,10 +286,10 @@
       ]
     },
     {
-      "id": "15_silicon", "obs": 15, "act": "V", "chapter": "SILICON", "dates": "1947–1991", "bars": 8,
+      "id": "15_silicon", "obs": 15, "act": "V", "chapter": "SILICON", "dates": "1947–2023", "bars": 8,
       "hud": { "date": "1947", "coords": "40.68° N 74.40° W", "coordsFact": "coord_murray_hill" },
       "transition": { "type": "cut", "flash": 0.25 },
-      "years": [{ "at": "1.1", "year": 1947 }, { "at": "3.1", "year": 1959 }, { "at": "5.1", "year": 1971 }, { "at": "7.1", "year": 1991 }],
+      "years": [{ "at": "1.1", "year": 1947 }, { "at": "3.1", "year": 1958 }, { "at": "5.1", "year": 1971 }, { "at": "7.1", "year": 2023 }],
       "events": [{ "at": "1.1", "year": 1947 }, { "at": "5.1", "year": 1971 }],
       "cues": [
         { "name": "transistor", "at": "1.1", "beats": 4 },
@@ -327,10 +327,10 @@
       ]
     },
     {
-      "id": "17_car", "obs": 17, "act": "V", "chapter": "THE CAR, REINVENTED", "dates": "2008–2025", "bars": 4,
+      "id": "17_car", "obs": 17, "act": "V", "chapter": "THE CAR, REINVENTED", "dates": "1913–2025", "bars": 4,
       "hud": { "date": "2025", "coords": "42.33° N 83.05° W", "coordsFact": "coord_detroit" },
       "transition": { "type": "match", "beats": 1 },
-      "years": [{ "at": "1.1", "year": 2008 }, { "at": "3.1", "year": 2025 }],
+      "years": [{ "at": "1.1", "year": 1913 }, { "at": "2.1", "year": 2025 }],
       "events": [{ "at": "3.1", "year": 2025 }],
       "cues": [
         { "name": "morph", "at": "1.1", "beats": 3 },
@@ -345,11 +345,17 @@
     },
     {
       "id": "18_rockets", "obs": 18, "act": "V", "chapter": "THE ROCKETS COME BACK", "dates": "2015–2024", "bars": 8,
-      "hud": { "date": "2024", "coords": "25.99° N 97.15° W", "coordsFact": "coord_boca_chica" },
+      "hud": {
+        "date": [{ "at": "1.1", "text": "2015" }, { "at": "3.1", "text": "2024" }],
+        "coords": [
+          { "at": "1.1", "text": "28.49° N 80.54° W", "fact": "coord_lz1" },
+          { "at": "3.1", "text": "26.00° N 97.16° W", "fact": "coord_starbase" }
+        ]
+      },
       "bg": { "navy": 0.6, "stars": 0.5 },
       "transition": { "type": "cut" },
-      "years": [{ "at": "1.1", "year": 2015 }, { "at": "3.1", "year": 2024 }, { "at": "6.1", "year": 2020 }],
-      "events": [{ "at": "2.1", "year": 2015 }, { "at": "4.1", "year": 2024 }, { "at": "6.1", "year": 2003 }, { "at": "7.1", "year": 2020 }],
+      "years": [{ "at": "1.1", "year": 2015 }, { "at": "3.1", "year": 2024 }, { "at": "6.1", "year": 2003 }, { "at": "7.1", "year": 2020 }],
+      "events": [{ "at": "2.1", "year": 2015 }, { "at": "4.1", "year": 2024 }, { "at": "6.3", "year": 2003 }, { "at": "7.1", "year": 2020 }],
       "cues": [
         { "name": "descent", "at": "1.1", "to": "2.1" },
         { "name": "landing", "at": "2.1", "beats": 2, "audio": { "type": "thud", "gain": -11 } },
