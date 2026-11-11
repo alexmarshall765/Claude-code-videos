@@ -204,10 +204,11 @@ SCENES.earthrise = S => {
 // -----------------------------------------------------------------------------
 // 29. One small step
 // -----------------------------------------------------------------------------
-function astronaut(g, x, y, h, salute = 1) {
+function astronaut(g, x, y, h, salute = 1, silhouette = null) {
   const u = h / 100;
   g.save(); g.translate(x, y); g.scale(u, u); g.lineCap = 'round'; g.lineJoin = 'round';
-  const suit = g.createLinearGradient(-14, 0, 16, 0); suit.addColorStop(0, '#f4f2ec'); suit.addColorStop(0.55, '#c9c7c0'); suit.addColorStop(1, '#55585e');
+  let suit = silhouette;
+  if (!suit) { suit = g.createLinearGradient(-14, 0, 16, 0); suit.addColorStop(0, '#f4f2ec'); suit.addColorStop(0.55, '#c9c7c0'); suit.addColorStop(1, '#55585e'); }
   g.fillStyle = suit; g.strokeStyle = suit;
   rrect(g, 6, -86, 16, 34, 4);                                   // life-support pack
   g.lineWidth = 13; line(g, -5, -46, -7, -6); line(g, 5, -46, 6, -6);
@@ -217,7 +218,7 @@ function astronaut(g, x, y, h, salute = 1) {
   if (salute) { line(g, -9, -78, -20, -70); line(g, -20, -70, -10, -90); } else { line(g, -9, -78, -16, -58); line(g, -16, -58, -12, -44); }
   circle(g, -1, -96, 12.5);
   const vis = g.createLinearGradient(-12, -104, 4, -90); vis.addColorStop(0, '#ffe9a8'); vis.addColorStop(0.5, '#c88a2a'); vis.addColorStop(1, '#3a2408');
-  g.fillStyle = vis; g.beginPath(); g.ellipse(-4.5, -96, 8, 9.5, 0, 0, TAU); g.fill();
+  if (!silhouette) { g.fillStyle = vis; g.beginPath(); g.ellipse(-4.5, -96, 8, 9.5, 0, 0, TAU); g.fill(); }
   g.restore();
 }
 SCENES.moon = S => {

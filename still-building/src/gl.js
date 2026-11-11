@@ -433,7 +433,7 @@ void main(){
   if (useB > .5) c = mix(texture(B, vUV).rgb, c, mixk);
   c = c*fade + vec3(1.,.97,.9)*flash;
   vec4 t = texture(txt, vUV);
-  c = c*(1.-t.a) + t.rgb;
+  c = c*(1.-t.a*fade) + t.rgb*fade;                 // type fades with the picture
   vec2 p = vUV*R;
   float g = hash(floor(p*.8) + fract(T*7.31)*371.) + hash(floor(p*.8)*1.7 + fract(T*3.17)*113.) - 1.;
   float l = luma(c);

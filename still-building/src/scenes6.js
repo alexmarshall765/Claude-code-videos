@@ -48,8 +48,8 @@ SCENES.flag = S => {
       [1160, 210, { hat: 'm1', broad: true, armF: [2.7, 2.2] }], [1440, 204, { hat: 'hardhat', armF: [0.3, 1.0] }], [1580, 196, { hat: 'none', armF: [2.4, 2.9] }], [1680, 122, { hat: 'none', armF: [2.6, 3.0], armB: [0.2, 0.3] }],
     ];
     for (const [x, h, o] of cast) ART.figure(g, x, gy(x), h, Object.assign({ face: 1, armB: [0, 0.25] }, o));
-    astronaut(g, 1300, gy(1300), 215, 0);
-    g.fillStyle = '#04050a'; g.globalAlpha = 0.9; ART.figure(g, 1300, gy(1300), 0.01, {}); g.globalAlpha = 1;
+    astronaut(g, 1300, gy(1300), 215, 0, '#04050a');
+    g.fillStyle = '#04050a';
     ART.grass(g, { y: 990, t, n: 200, hMin: 20, hMax: 70, seed: 4 });
   });
   S.post = { sun, rays: 0.6, rayc: [1, 0.88, 0.66], th: 0.78, bloom: 0.5, streak: 0.3, expo: 1.0, sat: 1.15, vig: 0.6, shadow: [0.46, 0.5, 0.6], high: [0.62, 0.55, 0.42] };
@@ -60,6 +60,7 @@ SCENES.flag = S => {
 // -----------------------------------------------------------------------------
 SCENES.title = S => {
   const { g, t } = S, cx = 960, cy = 440, K = 1560;
+  const hit = S.bar * 1.5;      // the last chord of the score lands here
   S.cam = { x: 0, y: 0, z: 1.0 + 0.035 * S.p };
   g.fillStyle = '#01030a'; g.fillRect(0, 0, W, H);
   glow(g, 960, 520, 1200, [0.1, 0.2, 0.5], 0.35, 'lighter');
@@ -77,7 +78,6 @@ SCENES.title = S => {
   });
   S.post = { bloom: 0.9, th: 0.42, streak: 0.2, expo: 1.03 + 0.22 * Math.exp(-Math.max(0, t - hit) * 3) * (t > hit ? 1 : 0), con: 0.34, vig: 0.72, shadow: [0.42, 0.48, 0.66], high: [0.62, 0.55, 0.44] };
   // the card
-  const hit = S.bar * 1.5;      // the last chord of the score
   const tx = S.tx, a1 = env(t, 1.6, 99, 1.8, 1) * S.ta, a2 = env(t, hit - 0.08, 99, 0.5, 1) * S.ta;
   tx.save();
   TYPE.setup(tx, '500 46px Cinzel', 20 + 6 * seg(t, 2, 11, E.out), 'center');
