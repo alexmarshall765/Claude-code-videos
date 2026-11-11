@@ -1,0 +1,412 @@
+{
+ "duration": 207.37081339712918,
+ "fps": 24,
+ "sections": [
+  {
+   "id": "greece",
+   "start": 0,
+   "end": 18.18181818181818,
+   "bpm": 66
+  },
+  {
+   "id": "rome",
+   "start": 18.18181818181818,
+   "end": 32.72727272727273,
+   "bpm": 66
+  },
+  {
+   "id": "faith",
+   "start": 32.72727272727273,
+   "end": 47.27272727272727,
+   "bpm": 66
+  },
+  {
+   "id": "renaissance",
+   "start": 47.27272727272727,
+   "end": 63.0622009569378,
+   "bpm": 76
+  },
+  {
+   "id": "science",
+   "start": 63.0622009569378,
+   "end": 78.85167464114834,
+   "bpm": 76
+  },
+  {
+   "id": "liberty",
+   "start": 78.85167464114834,
+   "end": 88.32535885167465,
+   "bpm": 76
+  },
+  {
+   "id": "beethoven",
+   "start": 88.32535885167465,
+   "end": 106.32535885167465,
+   "bpm": 80
+  },
+  {
+   "id": "industry",
+   "start": 106.32535885167465,
+   "end": 121.32535885167465,
+   "bpm": 96
+  },
+  {
+   "id": "acceleration",
+   "start": 121.32535885167465,
+   "end": 135.32535885167465,
+   "bpm": 120
+  },
+  {
+   "id": "connected",
+   "start": 135.32535885167465,
+   "end": 149.87081339712918,
+   "bpm": 132
+  },
+  {
+   "id": "ai",
+   "start": 149.87081339712918,
+   "end": 169.87081339712918,
+   "bpm": 96
+  },
+  {
+   "id": "finale",
+   "start": 169.87081339712918,
+   "end": 207.37081339712918,
+   "bpm": 120
+  }
+ ],
+ "shots": [
+  {
+   "id": "parthenon",
+   "section": "greece",
+   "start": 0,
+   "dur": 5.454545454545454
+  },
+  {
+   "id": "agora",
+   "section": "greece",
+   "start": 5.454545454545454,
+   "dur": 4.545454545454545
+  },
+  {
+   "id": "aristotle",
+   "section": "greece",
+   "start": 10,
+   "dur": 3.6363636363636362
+  },
+  {
+   "id": "scroll",
+   "section": "greece",
+   "start": 13.636363636363637,
+   "dur": 4.545454545454545
+  },
+  {
+   "id": "forum",
+   "section": "rome",
+   "start": 18.18181818181818,
+   "dur": 5
+  },
+  {
+   "id": "aqueduct",
+   "section": "rome",
+   "start": 23.18181818181818,
+   "dur": 5
+  },
+  {
+   "id": "pantheon",
+   "section": "rome",
+   "start": 28.18181818181818,
+   "dur": 4.545454545454545
+  },
+  {
+   "id": "monk",
+   "section": "faith",
+   "start": 32.72727272727273,
+   "dur": 5
+  },
+  {
+   "id": "masons",
+   "section": "faith",
+   "start": 37.72727272727273,
+   "dur": 4.545454545454545
+  },
+  {
+   "id": "rose",
+   "section": "faith",
+   "start": 42.27272727272727,
+   "dur": 5
+  },
+  {
+   "id": "duomo",
+   "section": "renaissance",
+   "start": 47.27272727272727,
+   "dur": 4.7368421052631575
+  },
+  {
+   "id": "anatomy",
+   "section": "renaissance",
+   "start": 52.00956937799043,
+   "dur": 4.7368421052631575
+  },
+  {
+   "id": "press",
+   "section": "renaissance",
+   "start": 56.74641148325359,
+   "dur": 6.315789473684211
+  },
+  {
+   "id": "ships",
+   "section": "science",
+   "start": 63.0622009569378,
+   "dur": 5.526315789473684
+  },
+  {
+   "id": "galileo",
+   "section": "science",
+   "start": 68.58851674641149,
+   "dur": 5.131578947368421
+  },
+  {
+   "id": "newton",
+   "section": "science",
+   "start": 73.72009569377991,
+   "dur": 5.131578947368421
+  },
+  {
+   "id": "quill",
+   "section": "liberty",
+   "start": 78.85167464114834,
+   "dur": 5.131578947368421
+  },
+  {
+   "id": "crowds",
+   "section": "liberty",
+   "start": 83.98325358851676,
+   "dur": 4.342105263157895
+  },
+  {
+   "id": "vienna",
+   "section": "beethoven",
+   "start": 88.32535885167465,
+   "dur": 3.75
+  },
+  {
+   "id": "scrawl",
+   "section": "beethoven",
+   "start": 92.07535885167465,
+   "dur": 5.25
+  },
+  {
+   "id": "premiere",
+   "section": "beethoven",
+   "start": 97.32535885167465,
+   "dur": 9
+  },
+  {
+   "id": "steam",
+   "section": "industry",
+   "start": 106.32535885167465,
+   "dur": 4.375
+  },
+  {
+   "id": "bulb",
+   "section": "industry",
+   "start": 110.70035885167465,
+   "dur": 3.75
+  },
+  {
+   "id": "telegraph",
+   "section": "industry",
+   "start": 114.45035885167465,
+   "dur": 3.125
+  },
+  {
+   "id": "flyer",
+   "section": "industry",
+   "start": 117.57535885167465,
+   "dur": 3.75
+  },
+  {
+   "id": "radio",
+   "section": "acceleration",
+   "start": 121.32535885167465,
+   "dur": 2.5
+  },
+  {
+   "id": "penicillin",
+   "section": "acceleration",
+   "start": 123.82535885167465,
+   "dur": 2
+  },
+  {
+   "id": "rocket",
+   "section": "acceleration",
+   "start": 125.82535885167465,
+   "dur": 2
+  },
+  {
+   "id": "footprint",
+   "section": "acceleration",
+   "start": 127.82535885167465,
+   "dur": 1.5
+  },
+  {
+   "id": "computer",
+   "section": "acceleration",
+   "start": 129.32535885167465,
+   "dur": 2.5
+  },
+  {
+   "id": "timeline",
+   "section": "acceleration",
+   "start": 131.82535885167465,
+   "dur": 3.5
+  },
+  {
+   "id": "fiber",
+   "section": "connected",
+   "start": 135.32535885167465,
+   "dur": 3.6363636363636362
+  },
+  {
+   "id": "webpage",
+   "section": "connected",
+   "start": 138.96172248803828,
+   "dur": 2.727272727272727
+  },
+  {
+   "id": "phones",
+   "section": "connected",
+   "start": 141.688995215311,
+   "dur": 4.090909090909091
+  },
+  {
+   "id": "earthweb",
+   "section": "connected",
+   "start": 145.7799043062201,
+   "dur": 4.090909090909091
+  },
+  {
+   "id": "protein",
+   "section": "ai",
+   "start": 149.87081339712918,
+   "dur": 6.25
+  },
+  {
+   "id": "doctor",
+   "section": "ai",
+   "start": 156.12081339712918,
+   "dur": 4.375
+  },
+  {
+   "id": "child",
+   "section": "ai",
+   "start": 160.49581339712918,
+   "dur": 5
+  },
+  {
+   "id": "horizon",
+   "section": "ai",
+   "start": 165.49581339712918,
+   "dur": 4.375
+  },
+  {
+   "id": "pullback",
+   "section": "finale",
+   "start": 169.87081339712918,
+   "dur": 6
+  },
+  {
+   "id": "library",
+   "section": "finale",
+   "start": 175.87081339712918,
+   "dur": 8
+  },
+  {
+   "id": "city",
+   "section": "finale",
+   "start": 183.87081339712918,
+   "dur": 8
+  },
+  {
+   "id": "orbit",
+   "section": "finale",
+   "start": 191.87081339712918,
+   "dur": 8
+  },
+  {
+   "id": "gold",
+   "section": "finale",
+   "start": 199.87081339712918,
+   "dur": 7.5
+  }
+ ],
+ "narration": [
+  {
+   "id": "n1",
+   "start": 2.4,
+   "hold": 3,
+   "text": "It began with a question."
+  },
+  {
+   "id": "n2",
+   "start": 6.754545454545454,
+   "hold": 2.3,
+   "text": "What is true?"
+  },
+  {
+   "id": "n3",
+   "start": 10.9,
+   "hold": 2.2,
+   "text": "What is good?"
+  },
+  {
+   "id": "n4",
+   "start": 19.08181818181818,
+   "hold": 2.3,
+   "text": "What is just?"
+  },
+  {
+   "id": "n5",
+   "start": 49.872727272727275,
+   "hold": 5.1,
+   "text": "From those questions came reason, law, art, and science."
+  },
+  {
+   "id": "n6",
+   "start": 92.57535885167465,
+   "hold": 3.8,
+   "text": "A deaf man wrote a symphony of joy."
+  },
+  {
+   "id": "n7",
+   "start": 121.62535885167465,
+   "hold": 5.5,
+   "text": "Ideas once carried by ship now cross the world in an instant,"
+  },
+  {
+   "id": "n8",
+   "start": 130.52535885167464,
+   "hold": 4.5,
+   "text": "and progress that took centuries now takes years."
+  },
+  {
+   "id": "n9",
+   "start": 152.07081339712917,
+   "hold": 4.6,
+   "text": "Now we’re building minds to think alongside our own."
+  },
+  {
+   "id": "n10",
+   "start": 172.07081339712917,
+   "hold": 2.9,
+   "text": "The story isn’t finished."
+  },
+  {
+   "id": "n11",
+   "start": 177.2708133971292,
+   "hold": 3,
+   "text": "It’s yours to continue."
+  }
+ ]
+}
