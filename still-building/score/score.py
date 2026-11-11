@@ -244,6 +244,9 @@ def play(inst, midi, t, dur, vel=0.8, expr=None, gain=1.0, human=0.012, pan=0.0,
     put(BUSOF[inst], t + RNG.uniform(-human, human), x, gain, pan)
 
 
+MELODY, HARMONY = 1.1, 0.84          # balance: the tune sits forward of the chords under it
+
+
 def seq(insts, sec, bar, notes, vel=0.8, octave=0, legato=1.0, beat=0.0, expr=None, cresc=None, **kw):
     """Melodic line. notes: 'D4:1.5 E4:.5 F#4+A4:2 r:1' (pitch:beats, + for dyads)."""
     insts = [insts] if isinstance(insts, str) else insts
@@ -258,7 +261,7 @@ def seq(insts, sec, bar, notes, vel=0.8, octave=0, legato=1.0, beat=0.0, expr=No
             for nm in name.split('+'):
                 for k, inst in enumerate(insts):
                     o = octave[k] if isinstance(octave, (list, tuple)) else octave
-                    play(inst, pitch(nm) + 12 * o, t, d * b * legato + 0.05, v, expr, **kw)
+                    play(inst, pitch(nm) + 12 * o, t, d * b * legato + 0.05, v * MELODY, expr, **kw)
         t += d * b
         pos += d
 
@@ -274,7 +277,7 @@ def pad(sec, bar, chords, voices, vel=0.6, expr=None, cresc=None, beat=0.0, **kw
         for inst, centre, role in voices:
             n = nearest([bass], centre) if role == 'bass' else nearest(pcs, centre, used)
             used.append(n)
-            play(inst, n, t, beats * b + 0.12, v, expr, **kw)
+            play(inst, n, t, beats * b + 0.12, v * HARMONY, expr, **kw)
         t += beats * b
         pos += beats
 
@@ -804,7 +807,7 @@ riser(T('finale', 4), 2.2, 1.0)
 boom(T('finale', 4), 1.2)
 one('piatti.wav', T('finale', 4), 0.85)
 one('tamtam-a.wav', T('finale', 4), 0.5)
-seq(['v1', 'tp', 'hn', 'fl'], 'finale', 4, HYMN_B, 1.0, octave=[0, 0, -1, 1])
+seq(['v1', 'tp', 'hn', 'fl'], 'finale', 4, HYMN_B, 1.0, octave=[1, 0, -1, 1])
 seq('v2', 'finale', 4, HYMN_B, 0.9)
 seq('tb', 'finale', 4, 'G3:2 B3:1 G#3:1 | A3:2 A3:2 | G3:1 F#3:1 A3:1 A3:1 | D3:4', 0.85)
 for bar, bt, n in ((4, 0, 'G2'), (4, 2, 'G2'), (5, 0, 'A2'), (5, 2, 'A2'), (6, 0, 'G2'), (6, 1, 'F#2'), (6, 2, 'A2'), (6, 3, 'A2'), (7, 0, 'D3'), (7, 2, 'D3')):
