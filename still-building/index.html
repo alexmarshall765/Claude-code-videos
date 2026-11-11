@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>STILL BUILDING — The United States of America</title>
+<style>
+  /* Fonts are vendored (SIL Open Font License) so renders are identical offline. */
+  @font-face { font-family: "Cinzel"; src: url(fonts/Cinzel.woff2) format("woff2"); font-weight: 400 900; font-display: block; }
+  @font-face { font-family: "Cormorant Garamond"; src: url(fonts/CormorantGaramond-500.woff2) format("woff2"); font-weight: 500; font-display: block; }
+  @font-face { font-family: "Cormorant Garamond"; src: url(fonts/CormorantGaramond-500i.woff2) format("woff2"); font-weight: 500; font-style: italic; font-display: block; }
+  @font-face { font-family: "Pinyon Script"; src: url(fonts/PinyonScript.woff2) format("woff2"); font-display: block; }
+  @font-face { font-family: "IM Fell English SC"; src: url(fonts/IMFellEnglishSC.woff2) format("woff2"); font-display: block; }
+  @font-face { font-family: "UnifrakturMaguntia"; src: url(fonts/UnifrakturMaguntia.woff2) format("woff2"); font-display: block; }
+  @font-face { font-family: "Inter"; src: url(fonts/Inter.woff2) format("woff2"); font-weight: 300 600; font-display: block; }
+  html, body { margin: 0; height: 100%; background: #000; color: #d8cfb8; font: 13px Inter, system-ui, sans-serif; }
+  #stage { position: fixed; inset: 0 0 52px 0; display: flex; align-items: center; justify-content: center; }
+  canvas { max-width: 100%; max-height: 100%; aspect-ratio: 16 / 9; background: #000; }
+  #ui { position: fixed; left: 0; right: 0; bottom: 0; height: 52px; display: flex; gap: 14px; align-items: center; padding: 0 16px; box-sizing: border-box; border-top: 1px solid #23201a; }
+  #ui button { background: none; border: 1px solid #5d5440; color: #e8dcc0; font: inherit; letter-spacing: .12em; padding: 6px 14px; cursor: pointer; }
+  #ui input[type=range] { flex: 1; accent-color: #d9b45a; }
+  #clock { min-width: 150px; font-variant-numeric: tabular-nums; }
+  body.render #ui { display: none; }
+  body.render #stage { inset: 0; }
+  body.render canvas { max-width: none; max-height: none; }
+</style>
+</head>
+<body>
+<div id="stage"><canvas id="c" width="1920" height="1080"></canvas></div>
+<div id="ui">
+  <button id="play">PLAY</button>
+  <span id="clock">0:00.0</span>
+  <input id="scrub" type="range" min="0" max="200" step="0.01" value="0">
+</div>
+<audio id="audio" src="out/score.wav" preload="auto"></audio>
+<script>if (new URLSearchParams(location.search).has('render')) document.body.classList.add('render');</script>
+<script src="src/timeline.js"></script>
+<script src="src/geo.js"></script>
+<script src="src/core.js"></script>
+<script src="src/gl.js"></script>
+<script src="src/art.js"></script>
+<script src="src/type.js"></script>
+<script src="src/scenes1.js"></script>
+<script src="src/scenes2.js"></script>
+<script src="src/scenes3.js"></script>
+<script src="src/scenes4.js"></script>
+<script src="src/scenes5.js"></script>
+<script src="src/film.js"></script>
+</body>
+</html>
