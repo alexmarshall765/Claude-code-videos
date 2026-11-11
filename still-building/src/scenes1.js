@@ -7,7 +7,7 @@
 /** Shader-plate helpers shared by every act: hex colours in, sensible defaults. */
 const PLATE = (() => {
   const conv = (u, keys) => { for (const k of keys) if (typeof u[k] === 'string') u[k] = hex(u[k]); return u; };
-  const SKY = { c0: '#0a1530', c1: '#27406e', c2: '#e9a66a', hy: 700, sun: [960, 600], sc: '#ffd9a0', ss: 26, sg: 0.6, cl: 0.5, cs: 1, ch: 1.6, cv: [0.012, 0], cd: '#1c2238', cb: '#ffc890', st: 0, seed: 1 };
+  const SKY = { c0: '#0a1530', c1: '#27406e', c2: '#e9a66a', hy: 700, sun: [960, 600], sc: '#ffd9a0', ss: 26, sg: 0.6, cl: 0.5, cs: 1, ch: 1.6, cv: [0.012, 0], cd: '#1c2238', cb: '#ffc890', st: 0, seed: 1, dk: 1 };
   const OCEAN = { deep: '#04101f', refl: '#c58a5c', sc: '#ffd9a0', fog: '#e9a66a', sun: [960, 600], hy: 700, spd: 0.5, cam: 0, chop: 1, glit: 1, fogA: 0.6 };
   return {
     sky(S, o, opt) { GLX.plate(S.g, 'sky', conv(Object.assign({ T: S.t }, SKY, o), ['c0', 'c1', 'c2', 'sc', 'cd', 'cb']), opt); },

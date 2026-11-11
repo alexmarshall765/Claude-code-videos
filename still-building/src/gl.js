@@ -39,7 +39,7 @@ float luma(vec3 c){ return dot(c, vec3(.2126,.7152,.0722)); }
   SRC.sky = `
 uniform vec3 c0, c1, c2, sc, cd, cb;
 uniform vec2 sun, cv;
-uniform float hy, ss, sg, cl, cs, ch, st, seed;
+uniform float hy, ss, sg, cl, cs, ch, st, seed, dk;
 float cdens(vec2 p){
   float v = clamp((hy-p.y)/hy, 0., 1.);
   float persp = 1./(v*ch + .12);
@@ -55,7 +55,7 @@ void main(){
   float r = length(p - sun);
   float g = exp(-r/(ss*4.))*sg + exp(-r/(ss*13.))*sg*.3;
   float band = exp(-abs(p.y-hy)/90.) * exp(-abs(p.x-sun.x)/700.) * sg * .4;
-  col += sc*(g + band);
+  col += sc*(g + band)*.78;
   if (st > 0.) {
     vec2 gp = floor(p/2.5); float h = hash(gp+seed);
     float s = step(.9972, h) * (.55+.45*sin(T*2.3+h*90.)) * (.4 + 1.6*fract(h*37.));
@@ -73,7 +73,8 @@ void main(){
     col = mix(col, cc, dn*.94);
   }
   float disc = smoothstep(ss, ss*.82, r);
-  col = mix(col, sc*1.5+.25, disc*(1.-dn*.8));
+  col = mix(col, sc*1.5+.25, disc*(1.-dn*.8)*dk);
+  col += (hash(p + fract(T)*91.) - .5)*(2.5/255.);
   o = vec4(col, 1.);
 }`;
 
@@ -102,7 +103,34 @@ void main(){
   col += sc*path*spark*glit*(.3 + 1.7*pow(1.-d,1.4));
   col += sc*path*glit*.10;
   col = mix(col, fog, exp(-d*13.)*fogA);
+  col += (hash(p + fract(T)*57.) - .5)*(2.5/255.);
   float edge = smoothstep(hy, hy+1.5, p.y);
+  o = vec4(col*edge, edge);
+}`;
+
+  /* Cloud deck seen from above: perspective fbm below the horizon, lit from the sun. */
+  SRC.deck = `
+uniform float hy, seed, spd, cover;
+uniform vec2 sun; uniform vec3 lit, dark, fog, sc;
+float dn(vec2 w){ return fbm(w*1.25 + .7*vec2(fbm3(w*2.1), fbm3(w*2.1+4.))); }
+void main(){
+  vec2 p = P;
+  if (p.y < hy) { o = vec4(0.); return; }
+  float d = (p.y-hy)/(R.y-hy);
+  float z = 1./(d + .035);
+  vec2 w = vec2((p.x-R.x*.5)*z*.003, z*1.7 + T*spd) + seed;
+  float n = dn(w);
+  vec2 ld = normalize(sun - p);
+  float n2 = dn(w + vec2(ld.x*.11, -.11*abs(ld.y)-.03));
+  float lg = clamp((n-n2)*5. + .5, 0., 1.);
+  float body = smoothstep(.62-cover*.5, .9-cover*.4, n);
+  vec3 col = mix(dark, lit, lg*.8 + .2*body);
+  col = mix(dark*.55, col, .35 + .65*body);
+  float gx = (p.x-sun.x)/(220. + d*900.);
+  col += sc*exp(-gx*gx)*pow(1.-d, 2.2)*.55;
+  col = mix(col, fog, exp(-d*6.5));
+  col += (hash(p + fract(T)*33.) - .5)*(2.5/255.);
+  float edge = smoothstep(hy, hy+2., p.y);
   o = vec4(col*edge, edge);
 }`;
 
@@ -251,7 +279,7 @@ void main(){
     // night side: city lights
     float city = m.g;
     vec3 night = vec3(1.,.74,.38) * city * lightsA * (1.-cdn*.7) * (1.-day);
-    night += surf*.035*(1.-day);
+    night += (surf*.03 + land*vec3(.012,.016,.03))*(1.-day);
     col = lit*day + night;
     // atmosphere (inside limb)
     float rim = pow(1.-n.z, 3.2);
@@ -357,7 +385,7 @@ void main(){
 uniform sampler2D src; uniform vec2 sun; uniform float dens, decay;
 void main(){
   vec2 s = vec2(sun.x/R.x, 1.-sun.y/R.y);
-  const int N = 56;
+  const int N = 64;
   vec2 dl = (vUV - s)*dens/float(N);
   float j = hash(vUV*R + T*60.);
   vec2 q = vUV - dl*j;
@@ -366,7 +394,7 @@ void main(){
   o = vec4(acc/float(N)*1.7, 1.);
 }`;
   SRC.grade = `
-uniform sampler2D src, b1, b2, ry, st;
+uniform sampler2D src, b1, b2, b3, b4, ry, st;
 uniform float bloom, rays, streak, expo, con, sat, vig, ca;
 uniform vec3 shadow, high, rayc, lift;
 vec3 shoulder(vec3 c){ vec3 k = max(c-.72, 0.); return min(c, vec3(.72)) + .28*(1.-exp(-k/.28)); }
@@ -377,12 +405,15 @@ void main(){
   c.r = texture(src, uv + cc*ca).r;
   c.g = texture(src, uv).g;
   c.b = texture(src, uv - cc*ca).b;
-  vec3 bl = texture(b1, uv).rgb*.55 + texture(b2, uv).rgb*.75;
+  vec3 bl = texture(b1, uv).rgb*.34 + texture(b2, uv).rgb*.36 + texture(b3, uv).rgb*.34 + texture(b4, uv).rgb*.3;
   c += bl*bloom;
   c += texture(ry, uv).rgb*rayc*rays;
   c += texture(st, uv).rgb*vec3(.55,.75,1.)*streak;
   c *= expo;
-  c = shoulder(max(c, 0.));                       // filmic highlight roll-off, keeps hue in the sun
+  c = max(c, 0.);                                 // filmic highlight roll-off that keeps the sun's hue
+  float m = max(c.r, max(c.g, c.b)), ms = shoulder(vec3(m)).x;
+  c *= ms/max(m, 1e-4);
+  c = mix(c, vec3(ms), smoothstep(1.1, 3.2, m)*.75);
   float l = luma(c);
   c = mix(vec3(l), c, sat);
   c = clamp(c, 0., 1.);
@@ -531,25 +562,30 @@ void main(){
     const p = Object.assign({}, POST_DEFAULT, P);
     const s = tex('scene', sceneCanvas);
     const qw = Math.round(cv.width / 4), qh = Math.round(cv.height / 4);
-    const A = fbo('qA', qw, qh), B = fbo('qB', qw, qh), C = fbo('qC', qw, qh);
-    const E1 = fbo('eA', qw >> 1, qh >> 1), E2 = fbo('eB', qw >> 1, qh >> 1);
-    const RY = fbo('ry', qw, qh), S1 = fbo('sA', qw >> 1, qh >> 1), S2 = fbo('sB', qw >> 1, qh >> 1);
+    const A = fbo('qA', qw, qh), RY = fbo('ry', qw, qh), RZ = fbo('rz', qw, qh);
     pass('bright', { src: s, th: p.th }, A);
-    pass('blur', { src: A, dir: [1.2, 0] }, B);
-    pass('blur', { src: B, dir: [0, 1.2] }, C);             // small bloom (C)
-    pass('blur', { src: C, dir: [2.2, 0] }, E1);
-    pass('blur', { src: E1, dir: [0, 2.2] }, E2);
-    pass('blur', { src: E2, dir: [3.2, 0] }, E1);
-    pass('blur', { src: E1, dir: [0, 3.2] }, E2);           // wide bloom (E2)
-    if (p.rays > 0) pass('rays', { src: A, sun: p.sun, dens: p.rayDens, decay: p.rayDecay, T: t }, RY);
-    else { gl.bindFramebuffer(gl.FRAMEBUFFER, RY.fb); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT); }
+    // bloom pyramid: each level is a stride-1 blur of the level above at half the size
+    const L = [];
+    let prev = A;
+    for (let i = 0; i < 4; i++) {
+      const w = Math.max(4, qw >> i), h = Math.max(4, qh >> i);
+      const X = fbo('bx' + i, w, h), Y = fbo('by' + i, w, h);
+      pass('blur', { src: prev, dir: [i ? 2 : 1, 0] }, X);
+      pass('blur', { src: X, dir: [0, 1] }, Y);
+      L.push(Y); prev = Y;
+    }
+    if (p.rays > 0) {
+      pass('rays', { src: A, sun: p.sun, dens: p.rayDens, decay: p.rayDecay, T: t }, RZ);
+      pass('blur', { src: RZ, dir: [0.8, 0.8] }, RY);
+    } else { gl.bindFramebuffer(gl.FRAMEBUFFER, RY.fb); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT); }
+    const S1 = fbo('sA', qw >> 1, qh >> 1), S2 = fbo('sB', qw >> 1, qh >> 1);
     if (p.streak > 0) {
-      pass('blur', { src: C, dir: [6, 0] }, S1);
-      pass('blur', { src: S1, dir: [14, 0] }, S2);
-      pass('blur', { src: S2, dir: [26, 0] }, S1);
+      pass('blur', { src: L[0], dir: [3, 0] }, S1);
+      pass('blur', { src: S1, dir: [5, 0] }, S2);
+      pass('blur', { src: S2, dir: [9, 0] }, S1);
     } else { gl.bindFramebuffer(gl.FRAMEBUFFER, S1.fb); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT); }
     pass('grade', {
-      src: s, b1: C, b2: E2, ry: RY, st: S1, bloom: p.bloom, rays: p.rays, rayc: p.rayc, streak: p.streak,
+      src: s, b1: L[0], b2: L[1], b3: L[2], b4: L[3], ry: RY, st: S1, bloom: p.bloom, rays: p.rays, rayc: p.rayc, streak: p.streak,
       expo: p.expo, con: p.con, sat: p.sat, vig: p.vig, ca: p.ca, shadow: p.shadow, high: p.high, lift: p.lift,
     }, dst);
   }

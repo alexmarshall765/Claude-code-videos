@@ -82,9 +82,7 @@ function rrect(g, x, y, w, h, r = 0) { g.beginPath(); g.roundRect(x, y, w, h, r)
 /** Soft radial glow (additive). */
 function glow(g, x, y, r, col, a = 1, op = 'lighter') {
   const gr = g.createRadialGradient(x, y, 0, x, y, r);
-  gr.addColorStop(0, css(col, a));
-  gr.addColorStop(0.35, css(col, a * 0.35));
-  gr.addColorStop(1, css(col, 0));
+  for (let i = 0; i <= 12; i++) { const u = i / 12; gr.addColorStop(u, css(col, a * Math.exp(-u * 3.6) * (1 - u * u))); }   // smooth falloff: no visible rings
   g.save(); g.globalCompositeOperation = op; g.fillStyle = gr;
   g.fillRect(x - r, y - r, r * 2, r * 2); g.restore();
 }

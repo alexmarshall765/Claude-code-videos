@@ -59,8 +59,9 @@ const ART = (() => {
     const leg = (a, bend) => {
       const kx = Math.sin(a) * 24, ky = hipY + Math.cos(a) * 24, a2 = a - bend;
       const fx = kx + Math.sin(a2) * 26, fy = ky + Math.cos(a2) * 26;
-      g.lineWidth = 7.4; g.beginPath(); g.moveTo(0, hipY); g.lineTo(kx, ky); g.lineTo(fx, fy); g.stroke();
-      g.lineWidth = 4.6; g.beginPath(); g.moveTo(fx, fy - 0.5); g.lineTo(fx + 6.5, fy); g.stroke();
+      g.lineWidth = 10.4; g.beginPath(); g.moveTo(0, hipY); g.lineTo(kx, ky); g.stroke();
+      g.lineWidth = 7.6; g.beginPath(); g.moveTo(kx, ky); g.lineTo(fx, fy - 1); g.stroke();
+      g.lineWidth = 5.2; g.beginPath(); g.moveTo(fx, fy - 1); g.lineTo(fx + 7.5, fy - 0.4); g.stroke();
     };
     if (o.sit) { g.save(); g.translate(0, hipY); g.rotate(-(o.lean || 0)); g.translate(0, -hipY); leg(1.45, 1.45); leg(1.35, 1.4); g.restore(); }
     else if (!o.skirt) { leg(sw * A, walking ? Math.max(0, -cw) * 0.55 : 0); leg(-sw * A, walking ? Math.max(0, cw) * 0.55 : 0); }
@@ -69,13 +70,15 @@ const ART = (() => {
       g.lineWidth = 4; line(g, -3, -3, 3 + sw * 4, 0);
     }
     // torso
-    const tw = o.broad ? 10 : 8.2;
-    fillPoly(g, [[-tw, shY + 2], [-tw + 1.5, shY - 1.5], [tw - 1.5, shY - 1.5], [tw, shY + 2], [6.4, hipY + 3], [-6.4, hipY + 3]]);
-    if (o.coat) fillPoly(g, [[-7.5, hipY - 6], [7.5, hipY - 6], [9, hipY + 20], [-11 - sw * 2, hipY + 21]]);
+    const tw = o.broad ? 11 : 9.4;
+    g.beginPath(); g.moveTo(-tw, shY + 5); g.quadraticCurveTo(-tw, shY - 2, -3.2, shY - 3.4); g.lineTo(3.2, shY - 3.4);
+    g.quadraticCurveTo(tw, shY - 2, tw, shY + 5); g.lineTo(tw - 1.4, shY + 15); g.lineTo(7.4, hipY - 5); g.lineTo(8.4, hipY + 4);
+    g.lineTo(-8.4, hipY + 4); g.lineTo(-7.4, hipY - 5); g.lineTo(-tw + 1.4, shY + 15); g.closePath(); g.fill();
+    if (o.coat) fillPoly(g, [[-8.5, hipY - 8], [8.5, hipY - 8], [10.5, hipY + 22], [-12.5 - sw * 2, hipY + 23]]);
     if (o.pack) rrect(g, -17, shY, 10, 21, 3);
     // head
     const hx = 1.2, hy = shY - 11.5;
-    g.lineWidth = 5; line(g, 0.5, shY, hx, hy + 4);
+    g.lineWidth = 5.6; line(g, 0.5, shY - 1, hx, hy + 4);
     circle(g, hx, hy, 6.6);
     const top = hy - 6;
     switch (o.hat) {
@@ -86,7 +89,7 @@ const ART = (() => {
       case 'hardhat': g.beginPath(); g.ellipse(hx, hy - 1, 8, 7.6, 0, Math.PI, 0); g.lineTo(hx + 12, hy); g.lineTo(hx - 8, hy); g.closePath(); g.fill(); break;
       case 'brim': ellipse(g, hx, top + 4, 13, 2.2); rrect(g, hx - 6, top - 3.5, 12, 8, 3); break;
       case 'cap': g.beginPath(); g.ellipse(hx - 0.5, top + 4.4, 7.6, 5, 0, Math.PI, 0); g.closePath(); g.fill(); fillPoly(g, [[hx + 4, top + 3], [hx + 12, top + 5], [hx + 4, top + 5.5]]); break;
-      case 'bandana': circle(g, hx - 0.5, hy - 1.2, 7.3); fillPoly(g, [[hx - 1, top - 0.5], [hx + 3, top - 5.5], [hx + 4, top], [hx + 8, top - 3.5], [hx + 5.5, top + 2.5]]); break;
+      case 'bandana': circle(g, hx - 0.5, hy - 1.2, 7.3); fillPoly(g, [[hx + 1, top + 0.5], [hx + 3.5, top - 3.2], [hx + 5, top - 0.5], [hx + 7.5, top - 1.6], [hx + 6, top + 2.5]]); break;
       case 'bonnet': g.beginPath(); g.ellipse(hx - 1.5, hy - 0.5, 8.6, 8.4, 0, Math.PI * 0.5, Math.PI * 1.9); g.lineTo(hx + 8, hy + 3); g.closePath(); g.fill(); break;
       default: break;
     }
@@ -95,11 +98,17 @@ const ART = (() => {
       const [a, b] = ang;
       const ex = shoulderX + Math.sin(a) * 16, ey = shY + 3 + Math.cos(a) * 16;
       const hx2 = ex + Math.sin(b) * 16, hy2 = ey + Math.cos(b) * 16;
-      g.lineWidth = 5.2; g.beginPath(); g.moveTo(shoulderX, shY + 3); g.lineTo(ex, ey); g.lineTo(hx2, hy2); g.stroke();
+      g.lineWidth = 7; g.beginPath(); g.moveTo(shoulderX, shY + 3); g.lineTo(ex, ey); g.stroke();
+      g.lineWidth = 5.6; g.beginPath(); g.moveTo(ex, ey); g.lineTo(hx2, hy2); g.stroke(); circle(g, hx2, hy2, 3.4);
       return [hx2, hy2];
     };
     const hF = arm(o.armF || [-sw * 0.5 + 0.05, -sw * 0.5 + 0.4], 2);
     const hB = arm(o.armB || [sw * 0.5 - 0.05, sw * 0.5 + 0.25], -2);
+    if (o.tool) {   // hammer / maul gripped in the leading hand
+      const { ang, len = 56, head = [20, 9] } = o.tool, ex = hF[0] + Math.sin(ang) * len, ey = hF[1] + Math.cos(ang) * len;
+      g.lineWidth = 2.6; line(g, hF[0] - Math.sin(ang) * 8, hF[1] - Math.cos(ang) * 8, ex, ey);
+      g.save(); g.translate(ex, ey); g.rotate(-ang); g.fillRect(-head[0] / 2, -head[1] / 2, head[0], head[1]); g.restore();
+    }
     if (o.carry === 'rifle') { g.lineWidth = 2.4; line(g, hF[0] - 1, hF[1] + 4, hF[0] - 14, hF[1] - 46); }
     if (o.carry === 'sling') { g.lineWidth = 2.4; line(g, -7, shY + 22, -9, shY - 30); }
     g.restore();
@@ -429,6 +438,15 @@ const ART = (() => {
     }
     g.restore();
   }
+  function pine(g, x, y, s, seed = 0) {
+    g.save(); g.translate(x, y); g.scale(s, s);
+    g.fillRect(-5, -40, 10, 40);
+    for (let i = 0; i < 7; i++) {
+      const w = 62 - i * 8 + h1(seed + i) * 10, yb = -26 - i * 30, yt = yb - 54;
+      fillPoly(g, [[-w, yb], [-w * 0.5, yb - 14], [-w * 0.62, yb - 14], [0, yt], [w * 0.62, yb - 14], [w * 0.5, yb - 14], [w, yb]]);
+    }
+    g.restore();
+  }
   /** Lattice derrick (oil) — (x, y) base centre. */
   function derrick(g, x, y, s) {
     g.save(); g.translate(x, y); g.scale(s, s); both(g);
@@ -456,6 +474,7 @@ const ART = (() => {
     g.fillStyle = '#27305e'; g.fillRect(0, 0, 456, sh * 7);
     g.fillStyle = '#f2ece0';
     if (kind === 13) for (let i = 0; i < 13; i++) { const a = i * TAU / 13 - Math.PI / 2; star(g, 228 + Math.cos(a) * 112, sh * 3.5 + Math.sin(a) * 112, 25, a); }
+    else if (kind === 48) for (let r = 0; r < 6; r++) for (let k = 0; k < 8; k++) star(g, 32 + k * 56, 30 + r * 53, 17);
     else for (let r = 0; r < 9; r++) for (let k = 0; k < (r % 2 ? 5 : 6); k++) star(g, 38 + (r % 2 ? 38 : 0) + k * 76, 32 + r * 32.4, 15);
     // weave: faint cloth texture so the flag never looks like a flat fill
     const r = rng(kind);
@@ -507,7 +526,7 @@ const ART = (() => {
       const rad = lerp(r0, r1, Math.sqrt(ph)) * (0.8 + 0.4 * r);
       const al = a * Math.sin(Math.min(1, ph * 6) * Math.PI / 2) * (1 - ph);
       const gr = g.createRadialGradient(px, py, 0, px, py, rad);
-      gr.addColorStop(0, css(col, al)); gr.addColorStop(0.6, css(col, al * 0.5)); gr.addColorStop(1, css(col, 0));
+      for (let k = 0; k <= 6; k++) { const u = k / 6; gr.addColorStop(u, css(col, al * (1 - u * u) * (1 - u * 0.5))); }
       g.fillStyle = gr; g.fillRect(px - rad, py - rad, rad * 2, rad * 2);
     }
     g.restore();
@@ -530,5 +549,5 @@ const ART = (() => {
     g.fillRect(-200, Math.min(y0, y1), W + 400, Math.abs(y1 - y0)); g.restore();
   }
 
-  return { star, wheel, figure, column, ox, horse, wagon, ship, statue, bell, loco, railcar, track, poles, skyline, windows, bridgeTower, barn, windmill, tree, derrick, flagArt, sparks, motes, puffs, grass, haze, both };
+  return { star, wheel, figure, column, ox, horse, wagon, ship, statue, bell, loco, railcar, track, poles, skyline, windows, bridgeTower, barn, windmill, tree, pine, derrick, flagArt, sparks, motes, puffs, grass, haze, both };
 })();
