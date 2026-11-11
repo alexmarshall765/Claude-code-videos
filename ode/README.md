@@ -108,9 +108,9 @@ node render.mjs --stills 4,95,180    # single PNG frames
 node render.mjs --sheet              # one still per shot, tiled into contact sheets
 ```
 
-The full film is 4,977 frames. On a 4-core cloud container it renders in about 25 minutes. Frames are piped straight into FFmpeg in parallel chunks, so nothing but the MP4 touches the disk.
+The full film is 4,977 frames. On a 4-core cloud container it renders in about 11 minutes. Frames are piped straight into FFmpeg in parallel chunks, so nothing but the MP4 touches the disk.
 
-Film grain is expensive to encode. At the default settings the file is roughly 100–150 MB; `--nograin` cuts that by more than half.
+Film grain is expensive to encode. At the default settings the file is about 110 MB (4 Mbit/s). Use `--nograin` for a smaller file, or a lower `--crf` to keep more of the grain.
 
 ## 4. Rebuilding the soundtrack
 
