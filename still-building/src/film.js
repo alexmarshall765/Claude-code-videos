@@ -121,3 +121,4 @@ const FILM = (() => {
   }
   return { renderAt, DURATION, shots, secs, ready, canvas: out };
 })();
+window.FILM = FILM;

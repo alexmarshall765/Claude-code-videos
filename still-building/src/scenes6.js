@@ -75,14 +75,15 @@ SCENES.title = S => {
     CITIES.slice(0, 64).forEach(([lo, la, w], i) => { const a = lit(lo, 0); if (a <= 0) return; const p = MAPS.albers(lo, la, cx, cy, K); glow(g, p[0], p[1], 8 + 30 * w, [1, 0.74, 0.4], 0.8 * a); g.fillStyle = css([1, 0.95, 0.85], a); circle(g, p[0], p[1], 1.4 + 1.8 * w); });
     g.restore();
   });
-  S.post = { bloom: 0.9, th: 0.42, streak: 0.2, expo: 1.03, con: 0.34, vig: 0.72, shadow: [0.42, 0.48, 0.66], high: [0.62, 0.55, 0.44] };
+  S.post = { bloom: 0.9, th: 0.42, streak: 0.2, expo: 1.03 + 0.22 * Math.exp(-Math.max(0, t - hit) * 3) * (t > hit ? 1 : 0), con: 0.34, vig: 0.72, shadow: [0.42, 0.48, 0.66], high: [0.62, 0.55, 0.44] };
   // the card
-  const tx = S.tx, a1 = env(t, 2.0, 99, 1.6, 1) * S.ta, a2 = env(t, 4.6, 99, 1.2, 1) * S.ta;
+  const hit = S.bar * 1.5;      // the last chord of the score
+  const tx = S.tx, a1 = env(t, 1.6, 99, 1.8, 1) * S.ta, a2 = env(t, hit - 0.08, 99, 0.5, 1) * S.ta;
   tx.save();
   TYPE.setup(tx, '500 46px Cinzel', 20 + 6 * seg(t, 2, 11, E.out), 'center');
   TYPE.draw(tx, 'THE UNITED STATES OF AMERICA', W / 2 + 10, 842, a1);
-  tx.fillStyle = css([0.85, 0.68, 0.36], a1); const rw = 300 * seg(t, 2.2, 4.4, E.out); tx.fillRect(W / 2 - rw, 872, rw * 2, 2);
-  TYPE.setup(tx, '600 104px Cinzel', 22 + 8 * seg(t, 4.6, 11, E.out), 'center');
+  tx.fillStyle = css([0.85, 0.68, 0.36], a1); const rw = 300 * seg(t, 1.8, 4.4, E.out); tx.fillRect(W / 2 - rw, 872, rw * 2, 2);
+  TYPE.setup(tx, '600 104px Cinzel', 22 + 8 * seg(t, hit, 11, E.out), 'center');
   TYPE.draw(tx, 'STILL BUILDING', W / 2 + 11, 990, a2);
   tx.restore();
 };

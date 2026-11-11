@@ -183,11 +183,16 @@ function quillPen(g, x, y, ang, s) {
   // vane
   const gr = g.createLinearGradient(-40, -300, 160, -400); gr.addColorStop(0, '#fbf5e4'); gr.addColorStop(0.55, '#d9ccae'); gr.addColorStop(1, '#8f7f62');
   g.fillStyle = gr;
-  g.beginPath(); g.moveTo(28, -150);
-  g.bezierCurveTo(-58, -250, -40, -470, 60, -590); g.bezierCurveTo(100, -636, 140, -652, 152, -648);
-  g.bezierCurveTo(196, -560, 170, -330, 76, -226); g.lineTo(62, -238); g.lineTo(58, -208); g.bezierCurveTo(48, -184, 38, -166, 28, -150); g.closePath(); g.fill();
-  g.strokeStyle = 'rgba(90,70,40,0.35)'; g.lineWidth = 1.5;
-  for (let i = 0; i < 26; i++) { const k = i / 26, bx = lerp(34, 148, k * k * 0.7 + k * 0.3), by = lerp(-170, -640, k); g.beginPath(); g.moveTo(bx, by); g.lineTo(bx - 62 + k * 30, by + 36); g.moveTo(bx, by); g.lineTo(bx + 44 - k * 20, by + 44); g.stroke(); }
+  g.beginPath(); g.moveTo(30, -150);
+  g.bezierCurveTo(-22, -250, -6, -470, 72, -596); g.bezierCurveTo(104, -636, 140, -652, 152, -648);
+  g.bezierCurveTo(182, -560, 150, -330, 76, -226); g.lineTo(64, -240); g.lineTo(60, -208); g.bezierCurveTo(50, -184, 40, -166, 30, -150); g.closePath(); g.fill();
+  // far side of the vane falls into shadow; barbs and the shaft give it structure
+  g.save(); g.clip(); g.fillStyle = 'rgba(60,40,18,0.22)';
+  g.beginPath(); g.moveTo(0, 0); g.quadraticCurveTo(40, -260, 150, -640); g.lineTo(260, -640); g.lineTo(200, 0); g.closePath(); g.fill();
+  g.strokeStyle = 'rgba(70,52,26,0.4)'; g.lineWidth = 1.4;
+  for (let i = 0; i < 34; i++) { const k = i / 34, bx = lerp(32, 146, k * k * 0.7 + k * 0.3), by = lerp(-160, -640, k); g.beginPath(); g.moveTo(bx, by); g.lineTo(bx - 70, by + 52); g.moveTo(bx, by); g.lineTo(bx + 60, by + 60); g.stroke(); }
+  g.restore();
+  g.strokeStyle = '#f6efdc'; g.lineWidth = 4; g.beginPath(); g.moveTo(0, 0); g.quadraticCurveTo(40, -260, 150, -640); g.stroke();
   // nib
   g.fillStyle = '#3a2a16'; fillPoly(g, [[0, 0], [9, -40], [-3, -38]]);
   g.restore();
@@ -285,8 +290,8 @@ SCENES.flag13 = S => {
 // -----------------------------------------------------------------------------
 SCENES.statue = S => {
   const { g, t } = S;
-  const oy = lerp(640, 70, seg(t, 0, 7.2, E.sine));          // camera tilt: world y of the top of frame
-  const water = 1500, sunW = [1080, 470];
+  const oy = lerp(640, 10, seg(t, 0, 7.2, E.sine));          // camera tilt: world y of the top of frame
+  const water = 1500, sunW = [1150, 400];
   const hy = water - oy, sun = [sunW[0], sunW[1] - oy];
   PLATE.sky(S, { hy, sun, c0: '#081a44', c1: '#3c5594', c2: '#f0a25e', sc: '#ffdca6', ss: 40, sg: 0.62, cl: 0.52, cs: 1.25, ch: 2.2, cd: '#2c335e', cb: '#ffc88a', seed: 17 });
   if (hy < H) PLATE.ocean(S, { hy, sun, deep: '#07142a', refl: '#d89862', fog: '#ffc888', sc: '#ffd9a2', spd: 0.3, glit: 1.2, fogA: 0.7 });
@@ -304,11 +309,11 @@ SCENES.statue = S => {
   }
   // the statue, backlit
   g.fillStyle = '#060a12';
-  ART.statue(g, 720, water + 16, 1.36, { flame: '#ffd27a' });
-  glow(g, 720 - 76 * 1.36, water + 16 - 948 * 1.36, 130, [1, 0.78, 0.38], 0.8);
-  glow(g, 720 - 76 * 1.36, water + 16 - 948 * 1.36, 36, [1, 0.95, 0.8], 1);
+  ART.statue(g, 740, water + 16, 1.5, { flame: '#ffd27a' });
+  glow(g, 740 - 76 * 1.5, water + 16 - 948 * 1.5, 140, [1, 0.78, 0.38], 0.8);
+  glow(g, 740 - 76 * 1.5, water + 16 - 948 * 1.5, 38, [1, 0.95, 0.8], 1);
   // island trees
-  for (let i = 0; i < 9; i++) ART.tree(g, 250 + i * 118 + (i * 53 % 40), water + 16, 0.55 + (i * 37 % 10) / 30, i);
+  for (let i = 0; i < 22; i++) { const x = 330 + i * 38 + (i * 53 % 30); if (Math.abs(x - 740) > 150) ART.tree(g, x, water + 18, 0.26 + (i * 37 % 10) / 60, i); }
   g.restore();
   S.post = { sun, rays: 0.5, rayc: [1, 0.82, 0.54], rayDens: 0.9, th: 0.8, bloom: 0.5, streak: 0.35, expo: 0.98, vig: 0.62, shadow: [0.44, 0.5, 0.6], high: [0.62, 0.54, 0.42] };
   TYPE.quote(S, 'Life, Liberty, and the Pursuit of Happiness.', 3.6, 8.2, { y: 968, size: 70, x: 1235 });

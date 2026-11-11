@@ -593,7 +593,7 @@ void main(){
     const tx = tex('text', textCanvas);
     pass('present', {
       A, B: B || A, txt: tx, useB: B ? 1 : 0, mixk: o.mix === undefined ? 1 : o.mix,
-      fade: o.fade === undefined ? 1 : o.fade, flash: o.flash || 0, grain: o.grain === undefined ? 0.05 : o.grain, T: t,
+      fade: o.fade === undefined ? 1 : o.fade, flash: o.flash || 0, grain: o.grain === undefined ? 0.016 : o.grain, T: t,
     }, null);
   }
   const full = name => fbo(name, cv.width, cv.height);

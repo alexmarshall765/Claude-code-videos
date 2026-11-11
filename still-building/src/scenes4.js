@@ -299,10 +299,19 @@ SCENES.victory = S => {
   // the avenue: façades converge on the light
   S.layer(0.4, () => {
     for (let k = 0; k < 6; k++) {
-      const u = k / 6, c = mixHex('#11131c', '#b9a58e', 1 - u * 0.9 - 0.08);
+      const u = k / 6, c = mixHex('#0b0d16', '#a8947e', 1 - u * 0.9 - 0.1);
       for (const sgn of [-1, 1]) {
         const x0 = 960 + sgn * (150 + 950 * u), x1 = 960 + sgn * (150 + 950 * (u + 0.2)), top = 520 - 640 * u - (k * 97 % 80) * (1 + u), base = 900 + 260 * u;
-        g.fillStyle = c; fillPoly(g, [[x0, top], [x1, top - 90 * u], [x1, base + 60], [x0, base]]);
+        const t1 = top - 90 * u, b1 = base + 60;
+        g.fillStyle = c; fillPoly(g, [[x0, top], [x1, t1], [x1, b1], [x0, base]]);
+        // storeys, piers and a cornice give the stone some scale
+        g.strokeStyle = `rgba(10,10,18,${0.1 + 0.2 * u})`; g.lineWidth = 3 + 7 * u;
+        const rows = 9 + k;
+        for (let j = 1; j < rows; j++) line(g, x0, lerp(top, base, j / rows), x1, lerp(t1, b1, j / rows));
+        g.lineWidth = 2 + 3 * u; for (let j = 1; j < 5; j++) { const xx = lerp(x0, x1, j / 5); line(g, xx, lerp(top, t1, j / 5), xx, lerp(base, b1, j / 5)); }
+        g.fillStyle = `rgba(8,8,14,${0.35 + 0.3 * u})`; fillPoly(g, [[x0, top], [x1, t1], [x1, t1 + 14 + 20 * u], [x0, top + 10 + 16 * u]]);
+        // bunting from the windows
+        for (let j = 2; j < rows - 2; j += 3) { const xx = lerp(x0, x1, 0.5), yy = lerp(lerp(top, base, j / rows), lerp(t1, b1, j / rows), 0.5), w = 26 + 60 * u; g.fillStyle = '#9e2030'; g.fillRect(xx - w / 2, yy, w, w * 0.5); g.fillStyle = '#e9e2d2'; g.fillRect(xx - w / 2, yy + w * 0.17, w, w * 0.16); g.fillStyle = '#27305e'; g.fillRect(xx - w / 2, yy, w * 0.4, w * 0.27); }
       }
     }
   });
@@ -314,8 +323,9 @@ SCENES.victory = S => {
     g.fillStyle = '#07080b'; g.save(); g.translate(x - 4, y - 14); g.rotate(0.06); g.fillRect(-7, 0, 13, 1100); g.restore();
   }
   // the crowd, hats and arms in the air
+  g.fillStyle = vgrad(g, 800, 1000, [[0, 'rgba(8,8,12,0)'], [1, 'rgba(8,8,12,0.9)']]); g.fillRect(0, 800, W, 300);
   for (let row = 0; row < 4; row++) {
-    const y = 880 + row * 62, h = 200 + row * 70, n = 26 - row * 4;
+    const y = 930 + row * 86, h = 230 + row * 95, n = 26 - row * 4;
     g.fillStyle = mixHex('#27242a', '#020203', row / 3);
     for (let i = 0; i < n; i++) {
       const x = -80 + (i + ((row * 0.37) % 1)) * (W + 160) / n + (h1(i * 3.3 + row) - 0.5) * 30, c = 0.5 + 0.5 * Math.sin(t * (5 + h1(i + row * 9) * 3) + i * 1.9 + row);
