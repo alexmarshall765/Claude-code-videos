@@ -2,11 +2,14 @@
 
 A 3:23 cinematic short about the United States, from a dawn on the Atlantic to a continent of light seen from orbit. Every frame is rendered from code and the orchestral score is written and synthesized in code too. There is no footage, photography or generated imagery.
 
-**Watch:** [`still-building.mp4`](still-building.mp4) (1920×1080, 30 fps, H.264 + AAC stereo).
+**Watch:** [`still-building.mp4`](still-building.mp4) (1920×1080, 30 fps, H.264 + AAC stereo, 90 MB).
+
+![Twelve frames from the film](poster.jpg)
 
 ```
 still-building/
 ├── still-building.mp4   the finished film
+├── poster.jpg           twelve frames from it
 ├── index.html           preview player (plays the film live in a browser, with the score if out/score.wav exists)
 ├── render.mjs           parallel offline renderer → MP4
 ├── src/
@@ -80,10 +83,10 @@ SSO_DIR="sso/Sonatina Symphonic Orchestra/Samples" python3 score/score.py
 ```
 
 ```bash
-node render.mjs
+node render.mjs --mbps 3.3
 ```
 
-The score takes about a minute. The picture is 6,087 frames; on a 4-core machine with software WebGL it takes roughly half an hour. Frames are cached in 6-second chunks under `out/parts/`, so after editing a shot you only redraw what changed:
+`--mbps 3.3` is the two-pass setting the committed file was encoded with; leave it off for constant quality. The score takes about a minute. The picture is 6,087 frames; on a 4-core machine with software WebGL it takes roughly half an hour. Frames are cached in 6-second chunks under `out/parts/`, so after editing a shot you only redraw what changed:
 
 ```bash
 node render.mjs --redo 36-64
