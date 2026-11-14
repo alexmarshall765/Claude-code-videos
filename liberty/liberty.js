@@ -1,6 +1,6 @@
 /* =============================================================================
  *  LIBERTY — The American Project
- *  A 2:15 cinematic short drawn entirely in code (HTML Canvas 2D).
+ *  A 2:00 cinematic short drawn entirely in code (HTML Canvas 2D).
  *
  *  Architecture
  *  ------------
@@ -8,7 +8,7 @@
  *    No state accumulates between frames, so preview scrubbing and offline
  *    frame-by-frame rendering produce identical images.
  *  - timeline.js is the master timeline, shared with the score (score.mjs):
- *    a 120 BPM grid, each scene's length in bars and named sync cues in beats.
+ *    a 134 BPM grid, each scene's length in bars and named sync cues in beats.
  *    Every cut lands on a downbeat and every headline on a beat, because the
  *    picture draws to the same cues the music is composed to.
  *  - SCENES (bottom of file) adds the picture side: chapter label, year range
@@ -17,6 +17,9 @@
  *  - Reusable "plates" (torch, Capitol, bridge, Wright Flyer, Saturn V, chip,
  *    booster tower ...) are drawn at any position/scale with a progress 0..1
  *    so they can assemble in their own scene and reappear in the montage.
+ *  - A camera layer pushes in slowly on every scene, punches on the score's
+ *    hits and shakes on the biggest; stars drift in depth behind it. The
+ *    plate border and the timeline stay still.
  *
  *  URL parameters
  *  --------------
@@ -68,6 +71,11 @@
   };
   const C = PALETTES[THEME];
   const col = (rgb, a = 1) => `rgba(${rgb},${a})`;
+  /** Blend two "r,g,b" colours: u = 0 gives a, u = 1 gives b. */
+  const mix = (a, b, u) => {
+    const A = a.split(',').map(Number), B = b.split(',').map(Number);
+    return A.map((v, i) => Math.round(v + (B[i] - v) * u)).join(',');
+  };
 
   const F = {
     display: '"Cinzel", "Trajan Pro", Georgia, serif',
@@ -241,7 +249,7 @@
   function kinetic(s, x, y, t, t0, o = {}) {
     const { size = 64, font = F.display, weight = 600, track = 8, rgb = C.bright,
       stagger = 0.03, dur = 0.7, out = Infinity, outDur = 0.5, rise = 0.35,
-      glow = 22, align = 'center', italic = false } = o;
+      glow = 22, align = 'center', italic = false, hot = 0.85 } = o;
     if (t < t0) return;
     const aOut = Number.isFinite(out) ? 1 - seg(t, out, out + outDur) : 1;
     if (aOut <= 0) return;
@@ -256,9 +264,12 @@
     ctx.shadowColor = col(rgb, 0.55);
     ctx.shadowBlur = glow * GLOW;
     chars.forEach((c, i) => {
-      const k = seg(t, t0 + i * stagger, t0 + i * stagger + dur, E.out);
+      const ti = t0 + i * stagger, k = seg(t, ti, ti + dur, E.out);
       if (k > 0) {
-        ctx.fillStyle = col(rgb, k * aOut);
+        // Each letter lands white-hot and cools to its colour.
+        const heat = hot * Math.exp(-(t - ti) / 0.35);
+        ctx.shadowBlur = glow * (1 + 1.2 * heat) * GLOW;
+        ctx.fillStyle = col(heat > 0.02 ? mix(rgb, C.white, heat) : rgb, k * aOut);
         ctx.fillText(c, cx, y + (1 - k) * size * rise);
       }
       cx += widths[i] + track;
@@ -439,7 +450,18 @@
   // Static randomness (computed once => deterministic frames)
   // ---------------------------------------------------------------------------
   const R = rng(1776);
-  const STARS = Array.from({ length: 260 }, () => ({ x: R() * W, y: R() * H, r: R() * 1.3 + 0.2, ph: R() * TAU, a: R() * 0.5 + 0.1 }));
+  // Stars sit in depth and drift toward the lens, so the sky has parallax.
+  // z = 1 is the far plane; ZNEAR is where a star passes the camera.
+  const ZNEAR = 0.25, STAR_SPREAD = 1150;
+  const RS = rng(250);
+  const STARS = Array.from({ length: 1500 }, () => ({
+    x: (RS() * 2 - 1) * STAR_SPREAD, y: (RS() * 2 - 1) * STAR_SPREAD, z: RS(),
+    r: RS() * 1.0 + 0.25, ph: RS() * TAU, a: RS() * 0.5 + 0.12,
+  }));
+  const RE = rng(76);
+  const EMBERS = Array.from({ length: 70 }, () => ({
+    ph: RE(), life: 1.6 + RE() * 1.8, x: RE() * 2 - 1, sway: 0.6 + RE() * 1.6, f: 1 + RE() * 2.5, sp: 0.6 + RE() * 0.8, r: 0.8 + RE() * 1.4,
+  }));
   const CHIP_TRACES = (() => {
     const out = [], r = rng(1971);
     for (let i = 0; i < 90; i++) {
@@ -1165,6 +1187,31 @@
     noGlow();
   }
 
+  /** Embers rising from (cx, cy). amount 0..1 is how many are alight. A pure function of t. */
+  function embers(cx, cy, t, amount = 1, speed = 1) {
+    const n = Math.round(EMBERS.length * clamp(amount));
+    for (let i = 0; i < n; i++) {
+      const e = EMBERS[i], age = ((t * speed) / e.life + e.ph) % 1;
+      const x = cx + e.x * 26 + Math.sin(age * e.f * TAU + e.ph * 9) * 20 * e.sway * age;
+      const y = cy - age * 430 * e.sp;
+      dot(x, y, e.r * (1 - 0.5 * age), i % 4 ? C.bright : C.white, Math.sin(Math.PI * Math.min(1, age * 1.1)) * 0.85, 8);
+    }
+  }
+  /** A burst of sparks from (cx, cy), dt seconds after the strike. */
+  function sparks(cx, cy, dt, n = 28, power = 1, seed = 2024) {
+    if (dt < 0 || dt > 1) return;
+    const r = rng(seed);
+    for (let i = 0; i < n; i++) {
+      const ang = r() * TAU, v = (200 + r() * 560) * power, life = 0.35 + r() * 0.55;
+      if (dt > life) continue;
+      const at = u => [cx + Math.cos(ang) * v * u, cy + Math.sin(ang) * v * u + 560 * u * u];
+      const [x1, y1] = at(Math.max(0, dt - 0.035)), [x2, y2] = at(dt);
+      pen(i % 3 ? C.bright : C.white, 1 - dt / life, 1.5, 8);
+      lineP(x1, y1, x2, y2, 1, false);
+    }
+    noGlow();
+  }
+
   // ===========================================================================
   //  SCENES  — draw(t, d): t = local time in seconds, d = scene duration
   // ===========================================================================
@@ -1174,6 +1221,7 @@
     // The flame ignites on the motif's third note and the title lands on its fourth.
     seal(cx, cy, 280, seg(t, 0.2, q.flame), t, seg(t, q.flame, q.flame + 2.5));
     torch(cx, cy - 10, 1.05, seg(t, 0.8, q.flame + 0.4, E.inOut), t, seg(t, q.flame, q.flame + 1.2, E.out));
+    embers(cx, cy - 130, t, seg(t, q.flame + 0.3, q.title + 0.5) * 0.5);
     kinetic('LIBERTY', cx, 820, t, q.title, { size: 150, track: 46, stagger: 0.08, dur: 1.2, glow: 34 });
     kinetic('A NATION CONCEIVED IN LIBERTY.', cx, 912, t, q.subtitle, { size: 30, track: 12, weight: 500, stagger: 0.025, rgb: C.gold, glow: 10 });
     txt('THE AMERICAN PROJECT · MDCCLXXVI — MMXXVI', cx, 962, { size: 13, track: 6, a: seg(t, q.legend, q.legend + 1.0) * 0.7 });
@@ -1246,7 +1294,7 @@
     [1846, 2463587, 'OREGON · 1846', -119.6, 44.8], [1848, 2992776, 'MEXICAN CESSION · 1848', -116.5, 37.5],
     [1853, 3022387, 'GADSDEN · 1853', -110.5, 32.2],
   ];
-  const SWEEP = [0.5, 6.5]; // frontier sweep window (local seconds), shared with the timeline year
+  const SWEEP = [0.4, 6.0]; // frontier sweep window (local seconds), shared with the timeline year
   function sExpansion(t) {
     const proj = makeProj(960, 590, 26);
     graticule(proj, 0.14, seg(t, 0, 1.2));
@@ -1298,7 +1346,7 @@
     ACQ.forEach(([y, a, label, lo, la], i) => {
       if (year >= y) area = a;
       const [x, yy] = proj(lo, la);
-      const k = seg(t, 0.8 + i * 0.8, 1.4 + i * 0.8);
+      const k = seg(t, 0.7 + i * 0.72, 1.3 + i * 0.72);
       if (year >= y) { dot(x, yy, 3, C.bright, k); txt(label, x, yy + 16, { size: 12, track: 1.5, a: k, rgb: C.bright }); }
     });
     // Ledger, lower left
@@ -1360,7 +1408,7 @@
     // Dune horizon and launching rail.
     pen(C.gold, 0.5, 1.2);
     polyP(sample(u => [lerp(80, 1840, u), 820 - Math.sin(u * 3.2) * 40 - Math.sin(u * 11) * 6], 80), seg(t, 0, 1.2), false, false);
-    const fly = seg(t, q.takeoff, q.takeoff + 4.0, E.in);
+    const fly = seg(t, q.takeoff, q.takeoff + 3.4, E.in);
     const fx = 640 + fly * 900, fy = 640 - Math.pow(fly, 1.6) * 340;
     // 60-ft launching rail, in the same projection as the airframe
     const RP = flyerProj(640, 640, 1.2);
@@ -1441,16 +1489,17 @@
     const shot = t < q.shot2 ? 0 : t < q.shot3 ? 1 : 2;
     const ls = t - cuts[shot];
     if (shot === 0) {
-      factory(960, 760, 1.0, seg(ls, 0, 1.6), t);
-      txt('WILLOW RUN · ONE B-24 BOMBER OFF THE LINE EVERY HOUR', 960, 830, { size: 15, track: 3, a: seg(ls, 0.8, 1.4) });
+      factory(960, 760, 1.0, seg(ls, 0, 2.6 * BEAT), t);
+      txt('WILLOW RUN · ONE B-24 BOMBER OFF THE LINE EVERY HOUR', 960, 830, { size: 15, track: 3, a: seg(ls, BEAT, 2 * BEAT) });
     } else if (shot === 1) {
-      const n = Math.floor(seg(ls, 0, 1.8, E.inOut) * 216);
+      const count = seg(ls, 0, 3.2 * BEAT, E.inOut); // settles just before the next cut
+      const n = Math.floor(count * 216);
       for (let i = 0; i < 216; i++) {
         if (i >= n) break;
         const c = i % 24, r = Math.floor(i / 24);
         plane(390 + c * 50, 340 + r * 52, 0.5, i > n - 12 ? 1 : 0.6);
       }
-      txt(fmt(seg(ls, 0, 1.8, E.inOut) * 296000), 960, 850, { size: 64, font: F.display, weight: 700, rgb: C.red, glow: 16 });
+      txt(fmt(count * 296000), 960, 850, { size: 64, font: F.display, weight: 700, rgb: C.red, glow: 16 });
       txt('MILITARY AIRCRAFT · 1940–1945', 960, 905, { size: 15, track: 4 });
     } else {
       libertyShip(960, 560, 1.15, seg(ls, 0, 1.5));
@@ -1461,7 +1510,7 @@
     }
     // Cut flash
     const fl = Math.max(0, 1 - Math.abs(t - q.shot2) / 0.12) + Math.max(0, 1 - Math.abs(t - q.shot3) / 0.12);
-    if (fl > 0) { ctx.fillStyle = col(C.white, 0.18 * fl); ctx.fillRect(0, 0, W, H); }
+    if (fl > 0) { ctx.fillStyle = col(C.white, 0.18 * fl); ctx.fillRect(-100, -100, W + 200, H + 200); }
     kinetic('WE BUILT THE ARSENAL.', 960, 175, t, q.title, { size: 70, track: 14, stagger: 0.03 });
     txt('THE ARSENAL OF DEMOCRACY · 1941 — 1945', 960, 245, { size: 15, track: 6, rgb: C.red, a: seg(t, q.title + 0.7, q.title + 1.5) });
   }
@@ -1512,24 +1561,35 @@
       ctx.save();
       ctx.beginPath(); ctx.rect(0, 0, W, by); ctx.clip();
       if (t > q.ignition) {
-        const ig = seg(t, q.ignition, q.liftoff);
-        for (let k = 0; k < 16; k++) {
-          const x = 960 + (k - 7.5) * 4.2;
-          const len = (120 + 260 * ig) * (0.75 + 0.25 * Math.sin(t * 50 + k * 1.7));
-          pen(k % 3 ? C.bright : C.white, 0.9 * ig, 1.5, 18);
-          lineP(x, ry, 960 + (x - 960) * 3, ry + len, 1, false);
+        const ig = seg(t, q.ignition, q.liftoff), up = seg(t, q.liftoff, q.liftoff + 1.2, E.out);
+        // White-hot core at the engine bells
+        if (THEME === 'black') {
+          const R1 = 150 + 240 * ig + 160 * up;
+          const g = ctx.createRadialGradient(960, ry + 20, 0, 960, ry + 20, R1);
+          g.addColorStop(0, col(C.white, 0.55 * ig)); g.addColorStop(0.3, col(C.bright, 0.22 * ig)); g.addColorStop(1, col(C.gold, 0));
+          ctx.globalCompositeOperation = 'lighter';
+          ctx.fillStyle = g; ctx.fillRect(960 - R1, ry + 20 - R1, R1 * 2, R1 * 2);
+          ctx.globalCompositeOperation = 'source-over';
         }
-        for (let k = 0; k < 10; k++) {
-          const u = seg(t, q.ignition + 0.1 + k * 0.05, q.earthrise - 0.4);
-          pen(C.gold, 0.5 * (1 - u * 0.6), 1);
-          circleP(960 + (k - 4.5) * 34 * (0.4 + u), by - 10 - u * 30 - (k % 3) * 12, 14 + u * (40 + (k % 4) * 12));
+        // The plume lengthens and fans out as the vehicle climbs
+        for (let k = 0; k < 28; k++) {
+          const x = 960 + (k - 13.5) * 2.5;
+          const len = (140 + 300 * ig + 520 * up) * (0.7 + 0.3 * Math.sin(t * 50 + k * 1.7));
+          pen(k % 3 ? C.bright : C.white, 0.9 * ig, k % 4 ? 1.3 : 2, 18);
+          lineP(x, ry, 960 + (x - 960) * (3 + 2.5 * up), ry + len, 1, false);
+        }
+        // Ground cloud billowing outward along the pad
+        for (let k = 0; k < 18; k++) {
+          const u = seg(t, q.ignition + 0.05 + k * 0.03, q.earthrise - 0.4, E.out);
+          pen(C.gold, 0.55 * (1 - u * 0.7), 1);
+          circleP(960 + (k - 8.5) * 30 * (0.35 + 2.2 * u), by - 12 - u * 46 - (k % 3) * 14, 14 + u * (60 + (k % 4) * 22));
         }
       }
       ctx.restore();
       saturnV(960, ry, 0.95, seg(t, 0.1, q.ignition, E.inOut), seg(t, 1.5, q.ignition - 0.2) * (1 - seg(t, q.ignition, q.ignition + 0.4)));
-      // Countdown in real seconds, one tick per beat.
-      const left = Math.ceil((q.liftoff - t) / BEAT) * BEAT;
-      txt(t < q.liftoff ? `T−${left.toFixed(1)}` : 'LIFTOFF', 1660, 800, { size: 30, font: F.display, weight: 600, align: 'right', rgb: C.bright, a: seg(t, 0.1, 0.5), glow: 10 });
+      // The count drops once per beat and reads zero on the drop.
+      const count = Math.max(0, Math.ceil((q.liftoff - t) / BEAT - 1e-6));
+      txt(t < q.liftoff ? `T−${String(count).padStart(2, '0')}` : 'LIFTOFF', 1660, 800, { size: 30, font: F.display, weight: 600, align: 'right', rgb: t < q.ignition ? C.bright : C.white, a: seg(t, 0.1, 0.5), glow: t < q.ignition ? 10 : 22 });
       txt('KENNEDY SPACE CENTER · JULY 16, 1969 · 09:32 EDT', 1660, 845, { size: 13, align: 'right', track: 2, a: seg(t, 1.0, 1.6) });
     } else {
       const u = t - q.earthrise;
@@ -1560,11 +1620,12 @@
     }
   }
 
+  const MOORE = [0.9, 6.4]; // window the transistor curve draws over; the score's filter follows it
   function sSilicon(t) {
     const q = Q.silicon;
     chip(540, 560, 480, seg(t, 0.1, q.chip, E.inOut), t);
     const c = chart({
-      x: 1050, y: 330, w: 700, h: 420, p: seg(t, 1.0, 7.0, E.inOut), log: true,
+      x: 1050, y: 330, w: 700, h: 420, p: seg(t, MOORE[0], MOORE[1], E.inOut), log: true,
       data: [[1971, 2300], [1978, 29000], [1985, 275000], [1993, 3.1e6], [2000, 4.2e7], [2006, 2.9e8], [2012, 1.4e9], [2017, 1.9e10], [2022, 1.14e11], [2024, 2.08e11]],
       xr: [1970, 2026], yr: [1e3, 1e12],
       xticks: [[1971, '1971'], [1985, '1985'], [2000, '2000'], [2024, '2024']],
@@ -1590,6 +1651,7 @@
       const boosterY = lerp(-1300, restTop, descend);
       const close = seg(t, q.arms, q.catch, E.inOut);
       catchTower(1180, by, 1.0, seg(t, 0, 2.0, E.inOut), boosterY, close, 1 - seg(t, q.arms - 0.25, q.arms + 0.15), t);
+      sparks(1011, 470, t - q.catch, 22, 1, 2024); sparks(1057, 470, t - q.catch, 22, 1, 2025);
       const v = Math.max(0, (1 - descend)) * 1250;
       txt(`${fmt(v)} KM/H`, 360, 640, { size: 46, font: F.display, weight: 600, align: 'left', rgb: C.bright, glow: 12, a: seg(t, 0.5, 1.0) });
       txt('DESCENT VELOCITY', 362, 690, { size: 14, align: 'left', track: 3, a: seg(t, 0.5, 1.0) });
@@ -1662,13 +1724,13 @@
     }
     // Energy chart: history solid, ambition dashed.
     const c = chart({
-      x: 1080, y: 330, w: 660, h: 400, p: seg(t, 0.5, 7.0, E.inOut), dashFrom: 2025,
+      x: 1080, y: 330, w: 660, h: 400, p: seg(t, 0.5, 6.4, E.inOut), dashFrom: 2025,
       data: [[1950, 330], [1960, 750], [1970, 1530], [1980, 2290], [1990, 3040], [2000, 3800], [2010, 4120], [2020, 4010], [2025, 4400],
         [2035, 6500], [2045, 9500], [2055, 13500], [2065, 18500], [2076, 25000]],
       xr: [1950, 2076], yr: [0, 26000], xticks: [[1950, '1950'], [2000, '2000'], [2025, 'NOW'], [2076, '2076']],
       yticks: [[0, '0'], [10000, '10k'], [20000, '20k']], title: 'U.S. ELECTRICITY · TWh / YEAR · HISTORY & AMBITION',
     });
-    const K = (Math.log10(lerp(1.9e13, 1e14, seg(t, 4.0, 7.0, E.inOut))) - 6) / 10;
+    const K = (Math.log10(lerp(1.9e13, 1e14, seg(t, 3.6, 6.4, E.inOut))) - 6) / 10;
     txt(`K = ${K.toFixed(3)}`, 1740, 800, { size: 40, font: F.display, weight: 600, align: 'right', rgb: C.bright, glow: 12, a: seg(t, 2.0, 2.6) });
     txt('CIVILIZATION ON THE KARDASHEV SCALE', 1740, 845, { size: 13, align: 'right', track: 2, a: seg(t, 2.0, 2.6) });
     if (c.xval > 2025) txt('PROJECTED', c.X(2050), c.Y(11500) - 26, { size: 12, track: 3, a: 0.8 });
@@ -1686,20 +1748,28 @@
     ['1883', (p, t) => bridge(960, 560, 0.9, p, t)],
     ['1800', (p) => capitol(960, 820, 0.8, p)],
   ];
+  /** The montage symbol on screen at local time t: index, start and length; null once 250 YEARS is up. */
+  function montageAt(t) {
+    const m = TL.byId.memory.marksAt;
+    if (t >= Q.memory.years) return null;
+    let i = m.length - 1;
+    while (i > 0 && t < m[i]) i--;
+    return { i, t0: m[i], len: (i + 1 < m.length ? m[i + 1] : Q.memory.years) - m[i] };
+  }
   function sRewind(t) {
-    const q = Q.memory, each = q.each; // one symbol every two beats
-    const i = Math.floor(t / each);
-    if (i < MONTAGE.length && t < q.years) {
-      const [year, draw] = MONTAGE[i];
-      const lt = t - i * each;
-      const a = seg(lt, 0, 0.12, E.linear) * (1 - seg(lt, each - 0.1, each, E.linear));
+    const q = Q.memory, cur = montageAt(t);
+    if (cur) {
+      // The rewind accelerates: each symbol arrives complete and starts to un-draw before the next cut.
+      const [year, draw] = MONTAGE[cur.i];
+      const lt = t - cur.t0, edge = Math.min(0.1, cur.len * 0.2);
+      const a = seg(lt, 0, edge, E.linear) * (1 - seg(lt, cur.len - edge, cur.len, E.linear));
       ctx.save(); ctx.globalAlpha *= a;
-      draw(seg(lt, 0, 0.6, E.out), t);
+      draw(lerp(1, 0.8, E.in(clamp(lt / cur.len))), t);
       txt(year, 960, 960, { size: 40, font: F.display, weight: 600, rgb: C.bright, glow: 14 });
       ctx.restore();
       const fl = Math.max(0, 1 - lt / 0.1);
-      if (fl > 0) { ctx.fillStyle = col(C.white, 0.12 * fl); ctx.fillRect(0, 0, W, H); }
-    } else if (t >= q.years) {
+      if (fl > 0) { ctx.fillStyle = col(C.white, 0.14 * fl); ctx.fillRect(-100, -100, W + 200, H + 200); }
+    } else {
       const lt = t - q.years;
       thirteen(960, 470, 270, 22, seg(lt, 0, 1.2, E.out));
       kinetic('250 YEARS.', 960, 470, lt, 0, { size: 92, track: 22, stagger: 0.06, dur: 0.9, glow: 30 });
@@ -1709,8 +1779,10 @@
 
   function sFinal(t) {
     const q = Q.final, cx = 960, cy = 450;
-    seal(cx, cy, 250, seg(t, 0, 1.6), t, seg(t, 0.4, q.onward + 0.4) * 1.3);
-    torch(cx, cy - 6, 0.94, seg(t, 0, 1.4), t, seg(t, 0.8, 1.6, E.out) * (1 + 0.25 * seg(t, q.onward, q.onward + 2.0)));
+    const surge = t >= q.onward ? Math.exp(-(t - q.onward) / 0.7) : 0; // the rays leap on the hit
+    seal(cx, cy, 250, seg(t, 0, 1.6), t, seg(t, 0.4, q.onward + 0.4) * (1.3 + 0.55 * surge));
+    torch(cx, cy - 6, 0.94, seg(t, 0, 1.4), t, seg(t, 0.8, 1.6, E.out) * (1 + 0.25 * seg(t, q.onward, q.onward + 2.0) + 0.2 * surge));
+    embers(cx, cy - 120, t, seg(t, 1.0, q.onward) * 0.45 + seg(t, q.onward, q.onward + 0.3) * 0.55, 1 + 0.6 * seg(t, q.onward, q.onward + 0.3));
     kinetic(FINAL_WORD, cx, 830, t, q.onward, { size: 140, track: 40, stagger: 0.09, dur: 1.1, rgb: C.white, glow: 40 });
     txt('THE BEST IS STILL AHEAD.', cx, 920, { size: 22, track: 12, a: seg(t, q.ahead, q.ahead + 1.0) });
   }
@@ -1737,15 +1809,15 @@
     { id: 'frontier',     chapter: ['XIII', 'FRONTIER'],                years: [2026, 2076], draw: sFrontier },
     { id: 'memory',       chapter: ['XIV', 'TWO HUNDRED FIFTY YEARS'],  years: [2076, 1776], draw: sRewind, fadeIn: 0.2,
       yearFn: t => { // snap to each montage symbol's year
-        const each = Q.memory.each, ys = [2076, ...MONTAGE.map(m => +m[0]), 1776];
-        const i = Math.min(ys.length - 2, Math.floor(t / each));
-        return lerp(ys[i], ys[i + 1], seg(t - i * each, 0, 0.35));
+        const ys = [2076, ...MONTAGE.map(m => +m[0])], cur = montageAt(t);
+        if (!cur) return lerp(ys[ys.length - 1], 1776, seg(t - Q.memory.years, 0, 0.35));
+        return lerp(ys[cur.i], ys[cur.i + 1], seg(t - cur.t0, 0, Math.min(0.35, cur.len * 0.7)));
       } },
     { id: 'final',        chapter: null,                                years: [1776, 2076], fadeIn: 0.3, fadeOut: 1.2, draw: sFinal },
   ];
   if (SCENES.map(s => s.id).join() !== TL.SCENES.map(s => s.id).join()) throw new Error('liberty.js scenes do not match timeline.js');
   SCENES.forEach(s => { s.start = TL.byId[s.id].start; s.dur = TL.byId[s.id].dur; s.kick = TL.byId[s.id].kick; });
-  const DURATION = TL.DURATION; // 135 s
+  const DURATION = TL.DURATION; // 120 s
 
   const sceneAt = T => SCENES.find(s => T >= s.start && T < s.start + s.dur) || SCENES[SCENES.length - 1];
   function yearAt(T) {
@@ -1790,7 +1862,7 @@
 
     // Timeline bar
     const tla = THEME === 'black' ? 1 : 1;
-    const vis = seg(T, 6.0, 7.5) * (1 - seg(T, DURATION - 3.6, DURATION - 2.6)) * tla;
+    const vis = seg(T, Q.open.legend, Q.open.legend + 1.3) * (1 - seg(T, DURATION - 3.6, DURATION - 2.6)) * tla;
     if (vis > 0) {
       ctx.save(); ctx.globalAlpha = vis;
       const y = yearAt(T);
@@ -1820,38 +1892,145 @@
     }
   }
 
-  /** 0..1 pulse on each kick of the score's groove (the `kick` ranges in timeline.js). */
+  /** 0..1 pulse on each hit of the score's groove (the `kick` ranges in timeline.js). */
   function beatPulse(T) {
-    const s = sceneAt(T), b = (T - s.start) / BEAT, i = Math.floor(b);
-    for (const [b0, b1, style] of s.kick) {
-      if (i < b0 || i >= b1) continue;
-      if (style !== 'four' && i % 2) return 0; // half and heart: beats 1 and 3 only
-      return (style === 'heart' ? 0.4 : 1) * Math.exp(-((b - i) * BEAT) / 0.11);
-    }
-    return 0;
+    const s = sceneAt(T), b = (T - s.start) / BEAT, k = TL.lastKick(TL.byId[s.id], b);
+    return k ? (k.style === 'heart' ? 0.4 : 1) * Math.exp(-((b - k.beat) * BEAT) / 0.11) : 0;
   }
 
-  // Centre of each hit's bloom (timeline.js HITS); the default is the frame centre.
-  const BLOOM_AT = {
-    'open.title': [960, 760], 'constitution.ambition': [960, 262], 'industry.light': [1290, 890],
-    'flight.takeoff': [700, 620], 'cosmos.liftoff': [960, 900], 'innovation.catch': [1034, 470],
-    'memory.years': [960, 470], 'final.onward': [960, 700],
+  // ---------------------------------------------------------------------------
+  // Camera: a slow push-in on every scene, a punch on every hit, and shake on
+  // the hits that move the earth. Only the scene layer moves; the plate border
+  // and the timeline stay still.
+  // ---------------------------------------------------------------------------
+  const CAM = { ax: 960, ay: 520, push: 0.035, punch: 0.028 };
+  // [amplitude px, decay s]
+  const SHAKE = {
+    'open.title': [3, 0.35], 'industry.light': [3, 0.3], 'arsenal.cut': [4, 0.25], 'arsenal.shot2': [4, 0.25], 'arsenal.shot3': [4, 0.25],
+    'cosmos.liftoff': [10, 1.4], 'innovation.catch': [7, 0.45], 'frontier.cut': [4, 0.3], 'final.onward': [8, 0.6],
   };
-  /** A brief warm bloom of light on the score's strongest hits. */
-  function bloom(T) {
+  function camera(T, s, local) {
+    let z = 1 + CAM.push * clamp(local / s.dur);
+    if (s.id === 'memory') {
+      // Each montage symbol pulls back, as if falling away into the past.
+      const cur = montageAt(local);
+      z = cur ? 1.06 - 0.06 * clamp((local - cur.t0) / cur.len) : 1 + CAM.push * clamp((local - Q.memory.years) / (s.dur - Q.memory.years));
+    }
+    let shake = 0;
     TL.HITS.forEach(h => {
       const dt = T - h.t;
-      if (dt < -0.04 || dt > 1.5) return;
-      const a = h.k * (dt < 0 ? 1 + dt / 0.04 : Math.exp(-dt / 0.32));
-      const [x, y] = BLOOM_AT[`${h.id}.${h.cue}`] || [W / 2, H / 2];
-      const g = ctx.createRadialGradient(x, y, 0, x, y, 900);
-      g.addColorStop(0, col(C.bright, 0.2 * a));
-      g.addColorStop(0.35, col(C.gold, 0.07 * a));
-      g.addColorStop(1, col(C.gold, 0));
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-      ctx.restore();
+      if (dt < 0 || dt > 4) return;
+      z += CAM.punch * h.k * Math.exp(-dt / 0.16);
+      const sh = SHAKE[`${h.id}.${h.cue}`];
+      if (sh) shake += sh[0] * Math.exp(-dt / sh[1]);
+    });
+    // The engines rattle the frame from ignition, building to liftoff.
+    const ig = TL.cueTime('cosmos', 'ignition'), lo = TL.cueTime('cosmos', 'liftoff');
+    if (T > ig && T < lo) shake += (5 * (T - ig)) / (lo - ig);
+    return {
+      z,
+      dx: (shake * (Math.sin(T * 86.1) + 0.6 * Math.sin(T * 145.3 + 1.3))) / 1.6,
+      dy: (shake * (Math.sin(T * 97.7 + 0.7) + 0.6 * Math.sin(T * 131.9 + 2.1))) / 1.6,
+    };
+  }
+  /** Where a scene-space point lands on screen under camera `cam`. */
+  const camPoint = (cam, x, y) => [CAM.ax + cam.dx + (x - CAM.ax) * cam.z, CAM.ay + cam.dy + (y - CAM.ay) * cam.z];
+
+  // ---------------------------------------------------------------------------
+  // Starfield. Speed is in depth-cycles per second: a slow forward drift all
+  // film long, a surge on liftoff, streaks as the frontier accelerates, a fast
+  // run backward through the rewind, and forward again from ONWARD.
+  // ---------------------------------------------------------------------------
+  const STAR_KEYS = [
+    [0, 0.006],
+    [TL.cueTime('cosmos', 'liftoff') - 0.01, 0.006], [TL.cueTime('cosmos', 'liftoff'), 0.07],
+    [TL.cueTime('cosmos', 'earthrise') - 0.01, 0.05], [TL.cueTime('cosmos', 'earthrise'), 0.004],
+    [TL.byId.frontier.start - 0.01, 0.006], [TL.byId.frontier.start, 0.07], [TL.cueTime('frontier', 'stop'), 0.32],
+    [TL.byId.memory.start - 0.01, 0], [TL.byId.memory.start, -0.4],
+    [TL.cueTime('memory', 'years') - 0.25, -0.3], [TL.cueTime('memory', 'years'), 0],
+    [TL.cueTime('final', 'onward') - 0.01, 0.004], [TL.cueTime('final', 'onward'), 0.22], [DURATION, 0.07],
+  ];
+  function starSpeed(T) {
+    for (let k = 1; k < STAR_KEYS.length; k++) {
+      if (T < STAR_KEYS[k][0]) {
+        const [t0, v0] = STAR_KEYS[k - 1], [t1, v1] = STAR_KEYS[k];
+        return lerp(v0, v1, (T - t0) / (t1 - t0));
+      }
+    }
+    return STAR_KEYS[STAR_KEYS.length - 1][1];
+  }
+  // Distance travelled, integrated once so any frame can be drawn on its own.
+  const STAR_STEP = 1 / 120;
+  const STAR_TRAVEL = (() => {
+    const n = Math.ceil(DURATION / STAR_STEP) + 2, z = new Float64Array(n);
+    for (let i = 1; i < n; i++) z[i] = z[i - 1] + starSpeed((i - 0.5) * STAR_STEP) * STAR_STEP;
+    return z;
+  })();
+  function stars(T) {
+    const u = T / STAR_STEP, i = Math.floor(u);
+    const travel = lerp(STAR_TRAVEL[i], STAR_TRAVEL[i + 1], u - i);
+    const dz = starSpeed(T) / 36; // depth covered while the shutter is open
+    ctx.lineCap = 'round';
+    for (const s of STARS) {
+      let f = (s.z - travel) % 1; if (f < 0) f += 1;
+      const z = ZNEAR + f * (1 - ZNEAR);
+      const x = W / 2 + s.x / z, y = H / 2 + s.y / z;
+      if (x < -20 || x > W + 20 || y < -20 || y > H + 20) continue;
+      const a = s.a * Math.min(1, (1 - f) / 0.12, f / 0.06) * (0.6 + 0.4 * Math.sin(T * 1.3 + s.ph)) * Math.min(1.6, 0.7 + 0.25 / z);
+      const r = s.r * Math.min(1.9, 0.6 + 0.28 / z);
+      const z2 = ZNEAR + clamp(f + dz) * (1 - ZNEAR), x2 = W / 2 + s.x / z2, y2 = H / 2 + s.y / z2;
+      if (Math.hypot(x - x2, y - y2) > 1.5) {
+        ctx.strokeStyle = col(C.white, a); ctx.lineWidth = r * 1.5;
+        ctx.beginPath(); ctx.moveTo(x2, y2); ctx.lineTo(x, y); ctx.stroke();
+      } else dot(x, y, r, C.white, a);
+    }
+  }
+
+  // Scene-space centre of each hit's light (timeline.js HITS); the default is the frame centre.
+  const HIT_AT = {
+    'open.title': [960, 760], 'founding.hold': [1340, 365], 'founding.truths': [1340, 470],
+    'constitution.ambition': [960, 262], 'expansion.continent': [960, 170], 'infra.roads': [960, 860],
+    'industry.light': [1290, 890], 'flight.takeoff': [700, 620], 'arsenal.cut': [960, 560], 'arsenal.shot2': [960, 560],
+    'arsenal.shot3': [960, 560], 'cosmos.liftoff': [960, 900], 'silicon.sand': [960, 175], 'innovation.catch': [1034, 470],
+    'frontier.cut': [560, 560], 'memory.years': [960, 470], 'final.onward': [960, 700],
+  };
+  /** Light on the score's hits: a warm bloom, and on the big ones a flare streak and a shockwave ring. */
+  function hitFx(T, cam) {
+    TL.HITS.forEach(h => {
+      const dt = T - h.t;
+      if (dt < -0.04 || dt > 1.6) return;
+      const [x, y] = camPoint(cam, ...(HIT_AT[`${h.id}.${h.cue}`] || [W / 2, H / 2]));
+      if (THEME === 'black') {
+        const a = h.k * (dt < 0 ? 1 + dt / 0.04 : Math.exp(-dt / 0.32));
+        const g = ctx.createRadialGradient(x, y, 0, x, y, 900);
+        g.addColorStop(0, col(C.bright, 0.26 * a));
+        g.addColorStop(0.35, col(C.gold, 0.08 * a));
+        g.addColorStop(1, col(C.gold, 0));
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+        // Anamorphic streak through the hit
+        const fa = dt >= 0 && h.k >= 0.45 ? h.k * Math.exp(-dt / 0.2) : 0;
+        if (fa > 0.01) {
+          const L = (420 + 760 * h.k) * (0.7 + 0.3 * Math.min(1, dt / 0.06));
+          [[1.5, 0.85], [6, 0.1]].forEach(([half, k]) => {
+            const g2 = ctx.createLinearGradient(x - L, 0, x + L, 0);
+            g2.addColorStop(0, col(C.bright, 0)); g2.addColorStop(0.5, col(C.white, k * fa)); g2.addColorStop(1, col(C.bright, 0));
+            ctx.fillStyle = g2; ctx.fillRect(x - L, y - half, 2 * L, 2 * half);
+          });
+        }
+        ctx.restore();
+      }
+      // Shockwave: two thin rings racing outward
+      if (dt >= 0 && h.k >= 0.5) {
+        [0, 0.1].forEach((lag, i) => {
+          const u = (dt - lag) / 1.1;
+          if (u <= 0 || u >= 1) return;
+          pen(C.bright, (i ? 0.3 : 0.55) * h.k * (1 - u) * (1 - u), 2.2 - 1.2 * u, 8);
+          circleP(x, y, 40 + (i ? 620 : 1000) * E.out(u) * (0.5 + 0.5 * h.k));
+        });
+        noGlow();
+      }
     });
   }
 
@@ -1876,19 +2055,27 @@
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
     ctx.drawImage(BG, 0, 0, W, H);
-    if (C.stars) STARS.forEach(s => dot(s.x, s.y, s.r, C.white, s.a * (0.6 + 0.4 * Math.sin(T * 1.3 + s.ph))));
+    if (C.stars) stars(T);
 
     const s = sceneAt(T), local = T - s.start;
     // Short fades so each new scene lands right on its downbeat.
     const fi = s.fadeIn ?? 0.2, fo = s.fadeOut ?? 0.3;
     const env = Math.min(fi ? clamp(local / fi) : 1, fo ? clamp((s.dur - local) / fo) : 1);
+    // Frontier: the picture slows to a halt with the score's tape stop (same curve).
+    let drawT = local;
+    if (s.id === 'frontier' && local > Q.frontier.stop) {
+      const n = s.dur - Q.frontier.stop, u = (local - Q.frontier.stop) / n;
+      drawT = Q.frontier.stop + n * (u - (u * u) / 2);
+    }
+    const cam = camera(T, s, local);
     ctx.save();
+    ctx.translate(CAM.ax + cam.dx, CAM.ay + cam.dy); ctx.scale(cam.z, cam.z); ctx.translate(-CAM.ax, -CAM.ay);
     ctx.globalAlpha = env;
-    s.draw(local, s.dur);
+    s.draw(drawT, s.dur);
     ctx.restore();
     ctx.shadowBlur = 0; ctx.setLineDash([]); ctx.letterSpacing = '0px';
 
-    if (THEME === 'black') bloom(T);
+    hitFx(T, cam);
     chrome(T, s, local, env);
     grain(T);
     // Final fade to black

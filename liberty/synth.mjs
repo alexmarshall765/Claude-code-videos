@@ -4,6 +4,8 @@
  *
  *  - Band-limited (polyBLEP) oscillators, Simper/Zavalishin state-variable
  *    filters, FM bells, supersaws, formant choir, additive organ.
+ *  - Orchestral voices for the big moments: spiccato and legato strings,
+ *    braams, taiko ensemble, timpani, tam-tam.
  *  - Drums and cinematic FX built from oscillators and seeded noise.
  *  - Mix tools: FDN hall reverb, ping-pong delay, kick sidechain, tape stop,
  *    a true-peak-aware lookahead limiter and an ITU-R BS.1770 loudness meter.
@@ -132,12 +134,16 @@ const SSAW = [-1, -0.5716, -0.1775, 0, 0.181, 0.565, 0.9767];
  * across the stereo field, through one resonant low-pass per channel.
  * `cutoff` may be a number or a function of absolute time (automation).
  * `gate` is an optional amplitude function of absolute time (trance gate).
+ * `vib` (semitones) adds a vibrato that blooms in over `vibDelay` seconds,
+ * which turns the stack into a legato string section.
  */
 export function supersaw(tr, t0, notes, dur, o = {}) {
   const { gain = 0.1, voices = 7, detune = 22, spread = 0.85, a = 0.01, d = 0.4, s = 0.85, r = 0.35,
-    cutoff = 6000, res = 0.75, env = 0, envDecay = 0.25, gate = null, hpHz = 140, bend = 0, bendTime = 0.08 } = o;
+    cutoff = 6000, res = 0.75, env = 0, envDecay = 0.25, gate = null, hpHz = 140, bend = 0, bendTime = 0.08,
+    vib = 0, vibHz = 5.6, vibDelay = 0.3 } = o;
   const [i0, i1] = span(tr, t0, dur + 5 * r);
   const R = rng(Math.round(t0 * 997) + notes.length * 31 + (notes[0] | 0));
+  let vf = 1;
   const offs = voices === 7 ? SSAW : Array.from({ length: voices }, (_, v) => (voices > 1 ? (2 * v) / (voices - 1) - 1 : 0));
   const osc = [];
   notes.forEach((m, ni) => {
@@ -154,10 +160,11 @@ export function supersaw(tr, t0, notes, dur, o = {}) {
     if ((i - i0) % 32 === 0) {
       const fc = cut(t0 + t) * (1 + env * Math.exp(-t / envDecay));
       fL.set(fc, res); fR.set(fc, res);
+      if (vib) vf = Math.pow(2, (vib * Math.sin(TAU * vibHz * t) * Math.min(1, t / vibDelay)) / 12);
     }
     const e = adsr(t, dur, a, d, s, r);
     if (t > dur && e < 1e-4) break;
-    const pb = bend ? Math.pow(2, (bend * Math.exp(-t / bendTime)) / 12) : 1;
+    const pb = (bend ? Math.pow(2, (bend * Math.exp(-t / bendTime)) / 12) : 1) * vf;
     let sl = 0, sr = 0;
     for (let k = 0; k < osc.length; k++) {
       const o2 = osc[k], dt = o2.dt * pb;
@@ -674,6 +681,166 @@ export function shimmer(tr, t0, notes, dur, o = {}) {
       l += Math.sin(TAU * f * t) * tm; rr += Math.sin(TAU * f * 1.002 * t + k) * tm;
     });
     tr.L[i] += l * e * gain; tr.R[i] += rr * e * gain;
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Orchestral voices for the big moments
+// -----------------------------------------------------------------------------
+const clampPan = p => clamp(p, -1, 1);
+
+/**
+ * Spiccato strings: one short bowed note from a small detuned section, with a
+ * touch of bow noise. The backbone of the ostinato.
+ */
+export function spiccato(tr, t0, m, o = {}) {
+  const { gain = 0.1, decay = 0.085, cutoff = 700, peak = 4200, res = 0.6, voices = 4, detune = 14,
+    pan = 0, spread = 0.5, bow = 0.2, hpHz = 90 } = o;
+  const [i0, i1] = span(tr, t0, decay * 7 + 0.02);
+  const R = rng(Math.round(t0 * 4409) + m * 13), f = hz(m);
+  const osc = Array.from({ length: voices }, (_, v) => {
+    const p = clampPan(pan + (voices > 1 ? (v / (voices - 1)) * 2 - 1 : 0) * spread);
+    return { dt: (f * Math.pow(2, ((R() * 2 - 1) * detune) / 1200)) / SR, ph: R(), l: panL(p), r: panR(p) };
+  });
+  const fL = new SVF(), fR = new SVF(), hL = new HP1(hpHz), hR = new HP1(hpHz);
+  const nz = noiseSrc(), nb = new SVF(Math.min(6000, f * 6), 1.2), norm = 1 / Math.sqrt(voices);
+  for (let i = i0; i < i1; i++) {
+    const t = (i - i0) / SR;
+    if ((i - i0) % 16 === 0) { const fc = cutoff + (peak - cutoff) * Math.exp(-t / (decay * 0.7)); fL.set(fc, res); fR.set(fc, res); }
+    const e = Math.min(1, t / 0.004) * Math.exp(-t / decay) * gain;
+    let sl = 0, sr = 0;
+    for (let k = 0; k < voices; k++) {
+      const q = osc[k], v = saw(q.ph, q.dt);
+      q.ph += q.dt; if (q.ph >= 1) q.ph -= 1;
+      sl += v * q.l; sr += v * q.r;
+    }
+    const n = nb.bp(nz()) * bow * Math.exp(-t / 0.015);
+    tr.L[i] += fL.lp(hL.tick(sl * norm + n)) * e;
+    tr.R[i] += fR.lp(hR.tick(sr * norm + n)) * e;
+  }
+}
+
+/**
+ * Braam: the trailer low-brass blast. Detuned saws and a square stacked on the
+ * root, octave, twelfth and double octave, overdriven, with a filter that
+ * snarls open, a scoop up into the note and a sine sub underneath.
+ */
+export function braam(tr, t0, m, dur, o = {}) {
+  const { gain = 0.3, a = 0.07, r = 0.6, drive = 3.2, peak = 2400, floor = 160, bright = 0.45,
+    flutter = 0.14, sub: subLevel = 0.5, scoop = 0.8 } = o;
+  const [i0, i1] = span(tr, t0, dur + 5 * r);
+  const R = rng(Math.round(t0 * 211) + m);
+  const layers = [[0, 1], [12, 0.9], [19, 0.5], [24, 0.45]];
+  const norm = 1 / Math.tanh(drive);
+  for (let c = 0; c < 2; c++) {
+    const out = c ? tr.R : tr.L, osc = [];
+    layers.forEach(([iv, lv]) => {
+      for (let v = -1; v <= 1; v++) osc.push({ f: hz(m + iv) * Math.pow(2, (v * 11 + (c ? 4 : -4)) / 1200), ph: R(), lv, sq: iv === 12 && v === 0 });
+    });
+    const fl = new SVF(), hp = new HP1(28);
+    let sp = 0, pb = 1;
+    for (let i = i0; i < i1; i++) {
+      const t = (i - i0) / SR;
+      const e = adsr(t, dur, a, 1, 1, r);
+      if (t > dur && e < 1e-4) break;
+      if ((i - i0) % 16 === 0) {
+        const fe = smooth(t / (a * 1.6)) * (bright + (1 - bright) * Math.exp(-t / 0.8)) * (t > dur ? Math.exp(-(t - dur) / (r * 0.6)) : 1);
+        fl.set(floor + (peak - floor) * fe, 0.85);
+        pb = Math.pow(2, (-scoop * Math.exp(-t / 0.045) - 0.12 * Math.min(1, t / dur)) / 12);
+      }
+      let x = 0;
+      for (let k = 0; k < osc.length; k++) {
+        const q = osc[k], dt = (q.f * pb) / SR;
+        x += (q.sq ? square(q.ph, dt, 0.35) : saw(q.ph, dt)) * q.lv;
+        q.ph += dt; if (q.ph >= 1) q.ph -= 1;
+      }
+      x = Math.tanh(drive * x * 0.28) * norm;
+      const fltr = 1 - flutter * (0.5 + 0.5 * Math.sin(TAU * 27 * t)) * Math.exp(-t / 0.7);
+      sp += (hz(m) * pb) / SR; if (sp >= 1) sp -= 1;
+      out[i] += (hp.tick(fl.lp(x)) * fltr + subLevel * Math.sin(TAU * sp)) * e * gain;
+    }
+  }
+}
+
+/** Taiko ensemble: several players striking almost together, plus a shared low boom. */
+export function taiko(tr, t0, o = {}) {
+  const { gain = 0.5, players = 4, f = 78, decay = 0.42, spread = 0.7, slap = 0.4, loose = 0.012, boom = 0.6 } = o;
+  const R = rng(Math.round(t0 * 1733) + players);
+  for (let k = 0; k < players; k++) {
+    const late = k === 0 ? 0 : R() * loose, ff = f * (0.9 + R() * 0.25);
+    tom(tr, t0 + late, {
+      gain: (gain / Math.sqrt(players)) * (0.8 + R() * 0.4), f0: ff * 1.9, f1: ff, sweep: 0.045,
+      decay: decay * (0.8 + R() * 0.4), slap, pan: players > 1 ? ((k / (players - 1)) * 2 - 1) * spread : 0,
+    });
+  }
+  if (boom) tom(tr, t0, { gain: gain * boom, f0: f * 1.1, f1: f * 0.58, sweep: 0.09, decay: decay * 1.5, slap: 0 });
+}
+
+/** Timpani stroke at MIDI note m: the head's 1 : 1.5 : 2 : 2.5 modes and a felt beater. */
+export function timpani(tr, t0, m, o = {}) {
+  const { gain = 0.3, decay = 0.9, pan = 0, hard = 0.5 } = o;
+  const [i0, i1] = span(tr, t0, decay * 5);
+  const f = hz(m), nz = noiseSrc(), lp = new SVF(500 + 1500 * hard, 0.7);
+  const gl = gain * panL(pan) * 0.6, gr = gain * panR(pan) * 0.6;
+  const modes = [[1, 1, 1], [1.5, 0.55, 0.7], [1.99, 0.3, 0.5], [2.44, 0.2, 0.35], [2.89, 0.1, 0.25]];
+  const ph = modes.map(() => 0);
+  for (let i = i0; i < i1; i++) {
+    const t = (i - i0) / SR, bend = 1 + 0.02 * Math.exp(-t / 0.03);
+    let v = 0;
+    for (let k = 0; k < modes.length; k++) {
+      ph[k] += (f * modes[k][0] * bend) / SR; if (ph[k] >= 1) ph[k] -= 1;
+      v += Math.sin(TAU * ph[k]) * modes[k][1] * Math.exp(-t / (decay * modes[k][2]));
+    }
+    v = (v + lp.lp(nz()) * hard * Math.exp(-t / 0.008)) * Math.min(1, t / 0.001);
+    tr.L[i] += v * gl; tr.R[i] += v * gr;
+  }
+}
+
+/** Timpani roll from t0 to t1, moving from level `from` to level `to` (a swell by default). */
+export function timpRoll(tr, t0, t1, m, o = {}) {
+  const { gain = 0.3, rate = 15, from = 0.15, to = 1, curve = 1.6, pan = 0 } = o;
+  const R = rng(Math.round(t0 * 907) + m);
+  for (let k = 0, t = t0; t < t1 - 1e-6; k++, t = t0 + k / rate) {
+    const u = (t - t0) / (t1 - t0);
+    timpani(tr, t + (R() - 0.5) * 0.006, m, { gain: gain * (from + (to - from) * Math.pow(u, curve)) * (k % 2 ? 0.88 : 1), decay: 0.35, pan, hard: 0.35 });
+  }
+}
+
+/** Tam-tam: a cloud of inharmonic partials. The upper ones bloom late, as on the real instrument. */
+export function gong(tr, t0, o = {}) {
+  const { gain = 0.2, f = 58, decay = 5, bright = 1 } = o;
+  const [i0, i1] = span(tr, t0, decay * 1.6);
+  const R = rng(Math.round(t0 * 389) + 5);
+  const ratios = [1, 1.47, 2.09, 2.56, 3.13, 3.89, 4.62, 5.43, 6.71, 8.21, 9.87, 12.3, 15.1, 18.7, 23.2];
+  const parts = ratios.map((k, n) => ({
+    w: TAU * f * k, beat: TAU * (0.2 + R() * 0.9), ph: R() * TAU,
+    amp: Math.pow(k, -0.75) * (n > 5 ? bright : 1), ta: 0.004 + 0.035 * n, td: decay / (1 + 0.28 * n),
+  }));
+  const env = new Float32Array(parts.length);
+  for (let c = 0; c < 2; c++) {
+    const out = c ? tr.R : tr.L, nz = noiseSrc(), bp = new SVF(4200, 0.8), side = c ? 0.5 : -0.5;
+    for (let i = i0; i < i1; i++) {
+      const t = (i - i0) / SR;
+      if ((i - i0) % 32 === 0) for (let k = 0; k < parts.length; k++) env[k] = parts[k].amp * (1 - Math.exp(-t / parts[k].ta)) * Math.exp(-t / parts[k].td);
+      let v = 0;
+      for (let k = 0; k < parts.length; k++) { const q = parts[k]; v += Math.sin(q.w * t + q.ph + side * Math.sin(q.beat * t)) * env[k]; }
+      v += bp.bp(nz()) * 0.25 * bright * (1 - Math.exp(-t / 0.25)) * Math.exp(-t / (decay * 0.3));
+      out[i] += v * gain * 0.35 * Math.min(1, (i1 - 1 - i) / (0.02 * SR));
+    }
+  }
+}
+
+/** Sub drop: a sine falling from f0 to f1, the floor dropping away under a hit. */
+export function subDrop(tr, t0, o = {}) {
+  const { gain = 0.4, f0 = 95, f1 = 30, len = 1.6, drive = 1.5 } = o;
+  const [i0, i1] = span(tr, t0, len);
+  const N = i1 - i0, norm = 1 / Math.tanh(drive);
+  let ph = 0;
+  for (let i = i0; i < i1; i++) {
+    const u = (i - i0) / N;
+    ph += (f0 * Math.pow(f1 / f0, Math.pow(u, 0.6))) / SR; if (ph >= 1) ph -= 1;
+    const y = Math.tanh(drive * Math.sin(TAU * ph)) * norm * Math.min(1, (i - i0) / 96) * Math.pow(1 - u, 1.5) * gain;
+    tr.L[i] += y; tr.R[i] += y;
   }
 }
 
