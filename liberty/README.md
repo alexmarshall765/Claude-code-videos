@@ -21,7 +21,7 @@ Quick start:
 ```bash
 cd liberty
 node score.mjs     # compose and render the score (about 1 min) → out/liberty-score.wav
-node render.mjs    # render the film with the score (about 13 min on 4 cores) → out/liberty.mp4
+node render.mjs    # render the film with the score (about 9 min on 4 cores) → out/liberty.mp4
 ```
 
 Or open `index.html` in Chrome, Edge, Safari or Firefox and press **▶ PLAY WITH SOUND**.
@@ -175,7 +175,7 @@ node render.mjs --no-audio               # picture only
 node render.mjs --audio other.wav        # a different track (trimmed and faded to picture)
 ```
 
-A full 1080p30 render is 3,600 frames. It takes about 13 minutes on a 4-core cloud container, rendering four pages in parallel. Each page pipes PNGs straight into its own FFmpeg segment, and the segments are joined without re-encoding. Canvas RGB is converted with the BT.709 matrix that the stream is tagged with, so the gold stays the same hue in every player. Set `CHROMIUM_PATH=/path/to/chrome` to use a specific browser binary.
+A full 1080p30 render is 3,600 frames. It takes about 9 minutes on a 4-core cloud container, rendering four pages in parallel. Each page pipes PNGs straight into its own FFmpeg segment, and the segments are joined without re-encoding. Canvas RGB is converted with the BT.709 matrix that the stream is tagged with, so the gold stays the same hue in every player. Set `CHROMIUM_PATH=/path/to/chrome` to use a specific browser binary.
 
 To change only the music, you don't need to re-render the picture. Re-mux it instead:
 
