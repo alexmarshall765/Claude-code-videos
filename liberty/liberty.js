@@ -37,7 +37,9 @@
   // ---------------------------------------------------------------------------
   const W = 1920, H = 1080;
   const params = new URLSearchParams(location.search);
-  const RENDER = params.has('render');
+  // API-only mode: no built-in player. Set by ?render (render.mjs) or by a host page that
+  // drives LIBERTY.renderAt() itself (window.LIBERTY_API_ONLY = true before this script).
+  const RENDER = params.has('render') || window.LIBERTY_API_ONLY === true;
   const THEME = params.get('theme') === 'parchment' ? 'parchment' : 'black';
   const SCALE = Math.max(1, parseFloat(params.get('scale')) || 1);
   // shadowBlur ignores the canvas transform, so glow is scaled by hand.
@@ -2098,7 +2100,7 @@
     scenes: SCENES.map(s => ({ id: s.id, start: s.start, dur: s.dur, chapter: s.chapter && s.chapter[1] })),
     ready: fontsReady.then(() => true),
   };
-  if (RENDER) { document.body.classList.add('render'); fontsReady.then(() => renderAt(0)); return; }
+  if (RENDER) { if (params.has('render')) document.body.classList.add('render'); fontsReady.then(() => renderAt(0)); return; }
 
   // Interactive preview. While playing, the score (audio/liberty-score.mp3, made by
   // score.mjs) is the master clock, so picture and music stay locked together.
