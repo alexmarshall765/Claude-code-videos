@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Chicago 3D — Downtown Explorer</title>
+<style>
+  :root {
+    --glass: rgba(14, 20, 30, .74);
+    --line: rgba(255, 255, 255, .14);
+    --ink: #f2f5f9;
+    --dim: #a9b4c2;
+    --gold: #ffc94d;
+    --teal: #58d6c0;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b1018; color: var(--ink);
+    font-family: "Avenir Next", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+    -webkit-user-select: none; user-select: none; touch-action: none; }
+  canvas#gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  .panel { background: var(--glass); border: 1px solid var(--line); border-radius: 12px; }
+  #start .card { -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+  #hud { position: fixed; inset: 0; pointer-events: none; }
+  #hud.hidden { display: none; }
+
+  #loc { position: absolute; left: 16px; top: 16px; padding: 10px 14px; min-width: 200px; max-width: 46vw; }
+  #loc .hood { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--teal); font-weight: 600; }
+  #loc .street { font-size: 19px; font-weight: 600; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #loc .stats { font-size: 12px; color: var(--dim); margin-top: 4px; font-variant-numeric: tabular-nums; }
+  #loc .stats b { color: var(--ink); font-weight: 600; }
+
+  #compass { position: absolute; left: 50%; top: 16px; transform: translateX(-50%); width: min(340px, 40vw); height: 34px; overflow: hidden; }
+  #compass canvas { width: 100%; height: 100%; display: block; }
+
+  #quest { position: absolute; right: 16px; top: 16px; padding: 10px 14px; text-align: right; }
+  #quest .t { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--gold); font-weight: 600; }
+  #quest .n { font-size: 19px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  #quest .next { font-size: 12px; color: var(--dim); margin-top: 2px; }
+
+  #cross { position: absolute; left: 50%; top: 50%; width: 18px; height: 18px; margin: -9px 0 0 -9px; opacity: .8; }
+  #cross::before, #cross::after { content: ""; position: absolute; background: #fff; box-shadow: 0 0 2px rgba(0,0,0,.8); }
+  #cross::before { left: 8px; top: 2px; width: 2px; height: 14px; }
+  #cross::after { top: 8px; left: 2px; height: 2px; width: 14px; }
+  #target { position: absolute; left: 50%; top: calc(50% + 26px); transform: translateX(-50%); padding: 5px 11px; font-size: 13px;
+    white-space: nowrap; border-radius: 8px; opacity: 0; transition: opacity .15s; }
+  #target.on { opacity: 1; }
+  #target span { color: var(--dim); }
+
+  #mini { position: absolute; right: 16px; bottom: 16px; width: 190px; height: 190px; border-radius: 50%; overflow: hidden;
+    border: 2px solid rgba(255,255,255,.35); box-shadow: 0 6px 24px rgba(0,0,0,.45); pointer-events: auto; cursor: pointer; background: #1b2430; }
+  #mini canvas { width: 100%; height: 100%; display: block; }
+
+  #keys { position: absolute; left: 16px; bottom: 16px; padding: 9px 13px; font-size: 12px; color: var(--dim); line-height: 1.75; }
+  #keys kbd { display: inline-block; min-width: 20px; padding: 0 5px; margin-right: 2px; border-radius: 5px; background: rgba(255,255,255,.12);
+    border: 1px solid var(--line); color: var(--ink); font: 600 11px/18px inherit; text-align: center; }
+  #keys .mode { color: var(--ink); font-weight: 600; font-size: 13px; }
+  #keys .mode i { font-style: normal; color: var(--teal); }
+
+  #labels { position: absolute; inset: 0; overflow: hidden; }
+  .lab { position: absolute; left: 0; top: 0; font-size: 12px; font-weight: 600; white-space: nowrap; padding: 2px 7px; border-radius: 6px;
+    background: rgba(10, 14, 22, .58); color: #fff; will-change: transform; display: none; }
+  .lab::after { content: ""; position: absolute; left: 50%; top: 100%; width: 1px; height: 14px; background: rgba(255,255,255,.6); }
+  .lab.lm { background: rgba(255, 201, 77, .92); color: #201400; }
+  .lab.lm.done { background: rgba(88, 214, 192, .9); color: #04231d; }
+  .lab small { font-weight: 500; opacity: .75; margin-left: 5px; }
+
+  #toast { position: absolute; left: 50%; top: 84px; transform: translate(-50%, -16px); padding: 14px 20px; max-width: min(520px, 90vw);
+    text-align: center; opacity: 0; transition: opacity .35s, transform .35s; border-color: rgba(255, 201, 77, .6); }
+  #toast.on { opacity: 1; transform: translate(-50%, 0); }
+  #toast .k { font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--gold); font-weight: 700; }
+  #toast .h { font-size: 22px; font-weight: 700; margin: 2px 0 4px; }
+  #toast .f { font-size: 13px; color: #d5dce6; line-height: 1.4; }
+
+  /* start / help screen */
+  #start { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px;
+    background: radial-gradient(ellipse at center, rgba(8,12,20,.35), rgba(8,12,20,.78)); }
+  #start.hidden { display: none; }
+  #start .card { padding: 28px 30px; max-width: 600px; width: 100%; max-height: 100%; overflow: auto; }
+  #start h1 { margin: 0; font-size: clamp(30px, 6vw, 46px); letter-spacing: -.01em; line-height: 1.05; }
+  #start h1 em { font-style: normal; color: var(--gold); }
+  #start p.sub { margin: 8px 0 18px; color: #cdd5df; font-size: 15px; line-height: 1.5; }
+  #start .grid { display: grid; grid-template-columns: auto 1fr; gap: 7px 14px; font-size: 14px; color: #dbe2ea; margin-bottom: 20px; }
+  #start .grid div:nth-child(odd) { white-space: nowrap; }
+  #start kbd { display: inline-block; min-width: 24px; padding: 1px 6px; border-radius: 6px; background: rgba(255,255,255,.12);
+    border: 1px solid var(--line); font: 600 12px/20px inherit; text-align: center; }
+  #go { pointer-events: auto; cursor: pointer; border: 0; border-radius: 10px; padding: 13px 26px; font: 700 16px inherit;
+    background: var(--gold); color: #241700; }
+  #go:hover { filter: brightness(1.08); }
+  #start .fine { margin-top: 14px; font-size: 11px; color: #8d99a8; line-height: 1.5; }
+  #go:disabled { background: rgba(255,255,255,.14); color: var(--dim); cursor: default; }
+
+  /* full map */
+  #bigmap { position: fixed; inset: 0; display: none; background: rgba(6, 9, 15, .86); padding: 18px; gap: 16px; }
+  #bigmap.on { display: flex; }
+  #bigmap .mapwrap { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; position: relative; }
+  #bigmap canvas { max-width: 100%; max-height: 100%; border-radius: 10px; cursor: crosshair; box-shadow: 0 10px 40px rgba(0,0,0,.6); }
+  #bigmap .side { width: 270px; flex: none; display: flex; flex-direction: column; padding: 14px; min-height: 0; }
+  #bigmap h2 { margin: 0 0 2px; font-size: 18px; }
+  #bigmap .hint { font-size: 12px; color: var(--dim); margin-bottom: 10px; line-height: 1.4; }
+  #lmlist { overflow: auto; flex: 1; margin: 0 -6px; }
+  #lmlist button { display: flex; width: 100%; align-items: center; gap: 8px; text-align: left; background: none; border: 0; color: var(--ink);
+    font: 500 13px inherit; padding: 7px 8px; border-radius: 7px; cursor: pointer; }
+  #lmlist button:hover { background: rgba(255,255,255,.1); }
+  #lmlist .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--gold); flex: none; }
+  #lmlist .done .dot { background: var(--teal); }
+  #lmlist .done { color: var(--dim); }
+  #closemap { margin-top: 10px; cursor: pointer; border: 1px solid var(--line); background: rgba(255,255,255,.08); color: var(--ink);
+    border-radius: 8px; padding: 9px; font: 600 13px inherit; }
+
+  /* touch controls */
+  #touch { position: fixed; inset: 0; pointer-events: none; display: none; }
+  body.touch #touch { display: block; }
+  body.touch #keys { display: none; }
+  body.touch #mini { width: 110px; height: 110px; bottom: auto; top: 98px; }
+  #stick { position: absolute; left: 28px; bottom: 28px; width: 120px; height: 120px; border-radius: 50%; border: 2px solid rgba(255,255,255,.3);
+    background: rgba(255,255,255,.07); }
+  #knob { position: absolute; left: 35px; top: 35px; width: 50px; height: 50px; border-radius: 50%; background: rgba(255,255,255,.45); }
+  #tbtns { position: absolute; right: 18px; bottom: 24px; display: grid; grid-template-columns: repeat(3, 54px); gap: 8px; pointer-events: auto; }
+  #tbtns button { height: 54px; border-radius: 14px; border: 1px solid var(--line); background: var(--glass); color: #fff; font: 600 13px inherit; }
+  #tbtns button:active { background: rgba(255,255,255,.3); }
+
+  @media (max-width: 720px) {
+    #quest .next, #loc .stats { display: none; }
+    #compass { display: none; }
+    #bigmap { flex-direction: column; }
+    #bigmap .side { width: auto; max-height: 38%; }
+  }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+
+<div id="hud" class="hidden">
+  <div id="labels"></div>
+  <div id="loc" class="panel">
+    <div class="hood" id="hood">The Loop</div>
+    <div class="street" id="street">Chicago</div>
+    <div class="stats"><b id="alt">0</b> m up · <b id="spd">0</b> km/h · <span id="clock">Day</span></div>
+  </div>
+  <div id="compass" class="panel"><canvas id="compassCv"></canvas></div>
+  <div id="quest" class="panel">
+    <div class="t">Landmarks found</div>
+    <div class="n" id="questN">0 / 0</div>
+    <div class="next" id="questNext"></div>
+  </div>
+  <div id="cross"></div>
+  <div id="target" class="panel"></div>
+  <div id="toast" class="panel"><div class="k">Landmark discovered</div><div class="h"></div><div class="f"></div></div>
+  <div id="keys" class="panel">
+    <div class="mode" id="modeLine">Mode: <i>Flying</i></div>
+    <div id="keyLines"></div>
+  </div>
+  <div id="mini"><canvas id="miniCv" width="380" height="380"></canvas></div>
+</div>
+
+<div id="touch">
+  <div id="stick"><div id="knob"></div></div>
+  <div id="tbtns">
+    <button data-k="up">▲</button><button data-k="mode">Walk</button><button data-k="map">Map</button>
+    <button data-k="down">▼</button><button data-k="boost">Fast</button><button data-k="time">☀︎</button>
+  </div>
+</div>
+
+<div id="bigmap">
+  <div class="mapwrap"><canvas id="bigCv"></canvas></div>
+  <div class="side panel">
+    <h2>Downtown Chicago</h2>
+    <div class="hint">Click anywhere on the map to fast-travel there, or pick a landmark. Gold = not yet found.</div>
+    <div id="lmlist"></div>
+    <button id="closemap">Close map (M)</button>
+  </div>
+</div>
+
+<div id="start">
+  <div class="card panel">
+    <h1>Chicago <em>3D</em></h1>
+    <p class="sub">Fly over and walk through downtown Chicago — about 16,000 real buildings at their real heights,
+      from the Gold Coast to Soldier Field. Find all the landmarks marked by golden beacons.</p>
+    <div class="grid" id="helpGrid">
+      <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></div><div>Move</div>
+      <div>Mouse</div><div>Look around (click the view to capture the mouse, <kbd>Esc</kbd> to release)</div>
+      <div><kbd>Space</kbd> / <kbd>Q</kbd></div><div>Fly up / down — or jump when walking</div>
+      <div><kbd>Shift</kbd></div><div>Boost (sprint on foot) · mouse wheel changes flying speed</div>
+      <div><kbd>F</kbd></div><div>Switch between flying and walking (drop in anywhere, even onto rooftops)</div>
+      <div><kbd>M</kbd></div><div>Full map and fast travel</div>
+      <div><kbd>T</kbd> · <kbd>L</kbd> · <kbd>H</kbd></div><div>Time of day · building labels · this help</div>
+    </div>
+    <button id="go" disabled><span id="loading">Building the city…</span></button>
+    <div class="fine">Works offline — everything is inside this one file. Map data © OpenStreetMap contributors and Overture Maps Foundation (ODbL).</div>
+  </div>
+</div>
+
+<script id="city-data" type="application/json">/*__CITY_DATA__*/</script>
+<script>/*__APP_JS__*/</script>
+</body>
+</html>
