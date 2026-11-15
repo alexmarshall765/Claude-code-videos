@@ -40,11 +40,13 @@ const U = {
   uNight: { value: 0 },
   uFog: { value: 0.00008 },
   uTime: { value: 0 },
+  uShadowMap: { value: null }, uShadowM: { value: new THREE.Matrix4() }, uShadowTexel: { value: 1 }, uShadowBias: { value: 0.001 }, uShadowOn: { value: 1 },
 };
 const GLSL_COMMON = /* glsl */`
   uniform vec3 uSun, uSunCol, uAmbCol, uSkyTop, uSkyHor;
   uniform float uNight, uFog, uTime;
-  float hash21(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+  uniform sampler2D uShadowMap; uniform mat4 uShadowM; uniform float uShadowTexel, uShadowBias, uShadowOn;
+  float hash21(vec2 p){ vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
   vec3 skyColor(vec3 d){
     float t = clamp(d.y, 0.0, 1.0);
     vec3 c = mix(uSkyHor, uSkyTop, pow(t, 0.5));
@@ -54,6 +56,32 @@ const GLSL_COMMON = /* glsl */`
   }
   vec3 lightOf(vec3 n){
     return uSunCol * max(dot(n, uSun), 0.0) * 0.8 + uAmbCol * (0.45 + 0.2 * n.y);
+  }
+  float n2(vec2 p){
+    vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(hash21(i), hash21(i + vec2(1.0, 0.0)), f.x), mix(hash21(i + vec2(0.0, 1.0)), hash21(i + vec2(1.0, 1.0)), f.x), f.y);
+  }
+  float fbm(vec2 p){ float a = 0.5, s = 0.0; for (int i = 0; i < 5; i++) { s += a * n2(p); p = p * 2.03 + 17.0; a *= 0.5; } return s; }
+  float shadowTap(vec2 uv, float z){ return step(z, texture2D(uShadowMap, uv).r); }
+  float shadowPcf(vec2 uv, float z){          // bilinear-filtered comparison for soft edges
+    vec2 st = uv * 2048.0 - 0.5, b = floor(st), f = st - b, o = (b + 0.5) / 2048.0; float t = 1.0 / 2048.0;
+    return mix(mix(shadowTap(o, z), shadowTap(o + vec2(t, 0.0), z), f.x), mix(shadowTap(o + vec2(0.0, t), z), shadowTap(o + vec2(t, t), z), f.x), f.y);
+  }
+  float shadowAt(vec3 wp, vec3 n){
+    if (uShadowOn < 0.5) return 1.0;
+    vec4 sc = uShadowM * vec4(wp + n * uShadowTexel * 1.6 + uSun * uShadowTexel * 0.8, 1.0);
+    vec3 p = sc.xyz * 0.5 + 0.5;
+    if (p.x < 0.0 || p.x > 1.0 || p.y < 0.0 || p.y > 1.0 || p.z > 1.0) return 1.0;
+    float z = p.z - uShadowBias, t = 0.8 / 2048.0;
+    float s = (shadowPcf(p.xy + vec2(t, t), z) + shadowPcf(p.xy + vec2(-t, t), z) + shadowPcf(p.xy + vec2(t, -t), z) + shadowPcf(p.xy + vec2(-t, -t), z)) * 0.25;
+    vec2 e = min(p.xy, 1.0 - p.xy);
+    return mix(1.0, s, smoothstep(0.0, 0.06, min(e.x, e.y)));
+  }
+  // sun + sky light with cast shadows
+  vec3 lightSh(vec3 n, vec3 wp){
+    float nd = max(dot(n, uSun), 0.0);
+    float sh = nd > 0.0 ? shadowAt(wp, n) : 0.0;
+    return uSunCol * nd * 0.92 * sh + uAmbCol * (0.45 + 0.2 * n.y);
   }
   vec3 fogged(vec3 c, vec3 wp){
     vec3 v = wp - cameraPosition;
@@ -90,6 +118,14 @@ const sky = new THREE.Mesh(
       float h = fract(sin(dot(ip, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
       float star = step(0.9975, h) * (1.0 - smoothstep(0.0, 0.45, length(fract(p) - 0.5)));
       c += vec3(0.9, 0.95, 1.0) * star * uNight * smoothstep(0.02, 0.3, d.y) * 1.3;
+      if (d.y > 0.012) {                       // drifting clouds
+        vec2 cp = d.xz / (d.y + 0.09) * 1.05 + vec2(uTime * 0.006, uTime * 0.002);
+        float dens = fbm(cp * 1.25);
+        float cl = smoothstep(0.50, 0.80, dens) * smoothstep(0.012, 0.16, d.y);
+        float lit = smoothstep(0.45, 0.95, fbm(cp * 1.25 + uSun.xz * 0.22));
+        vec3 cc = uAmbCol * 0.95 + uSunCol * (0.75 - 0.5 * lit) + uSunCol * pow(s, 6.0) * 0.5;
+        c = mix(c, cc, cl * 0.88);
+      }
       gl_FragColor = vec4(c, 1.0);
     }
   `, { side: THREE.BackSide, depthWrite: false, depthTest: false }));
@@ -104,7 +140,8 @@ const flatMat = shader(/* glsl */`
 `, /* glsl */`
   varying vec3 vCol; varying vec3 vW;
   void main(){
-    vec3 c = vCol * lightOf(vec3(0.0, 1.0, 0.0));
+    float gr = mix(1.0, 0.86 + 0.28 * (n2(vW.xz * 1.9) * 0.6 + n2(vW.xz * 0.21) * 0.4), exp(-distance(vW, cameraPosition) * 0.006));
+    vec3 c = vCol * gr * lightSh(vec3(0.0, 1.0, 0.0), vW);
     gl_FragColor = vec4(fogged(c, vW), 1.0);
   }
 `, { depthTest: false, depthWrite: false });
@@ -127,7 +164,8 @@ const roadMat = shader(/* glsl */`
         alb = mix(alb, vec3(0.85), ln * dash * vis);
       }
     }
-    vec3 c = alb * lightOf(vec3(0.0, 1.0, 0.0));
+    alb *= mix(1.0, 0.9 + 0.2 * (n2(vW.xz * 2.3) * 0.5 + n2(vW.xz * 0.31) * 0.5), exp(-distance(vW, cameraPosition) * 0.006));
+    vec3 c = alb * lightSh(vec3(0.0, 1.0, 0.0), vW);
     c += uNight * step(0.5, vR.z) * vec3(0.30, 0.20, 0.09) * (0.55 + 0.45 * sin(vR.y * 0.21) * sin(vR.y * 0.21));
     gl_FragColor = vec4(fogged(c, vW), 1.0);
   }
@@ -155,38 +193,47 @@ const waterMat = shader(/* glsl */`
   }
 `, { depthTest: false, depthWrite: false });
 
-// Buildings: procedural windows that light up at night
+// Buildings: procedural facades (windows, blinds, mullions, shopfronts, parapets) that light up at night
 const buildingMat = shader(/* glsl */`
-  attribute vec3 aNrm; attribute vec4 aCol; attribute vec3 aUv;
-  varying vec3 vN; varying vec3 vCol; varying float vSeed; varying vec3 vUv; varying vec3 vW;
+  attribute vec3 aNrm; attribute vec4 aCol; attribute vec4 aUv;
+  varying vec3 vN; varying vec3 vCol; varying float vSeed; varying vec4 vUv; varying vec3 vW;
   void main(){ vN = aNrm; vCol = aCol.rgb; vSeed = aCol.a; vUv = aUv; vW = position;
     gl_Position = projectionMatrix * viewMatrix * vec4(position, 1.0); }
 `, /* glsl */`
-  varying vec3 vN; varying vec3 vCol; varying float vSeed; varying vec3 vUv; varying vec3 vW;
+  varying vec3 vN; varying vec3 vCol; varying float vSeed; varying vec4 vUv; varying vec3 vW;
   void main(){
     vec3 n = normalize(vN);
     float style = floor(vUv.z + 0.5);
     vec3 view = normalize(vW - cameraPosition);
+    float near = exp(-distance(vW, cameraPosition) * 0.004);
+    vec3 L = lightSh(n, vW);
+    float sd = floor(vSeed * 255.0 + 0.5);          // exact per-building integer, so the hashes below are stable
     vec3 c;
     if (style > 2.5) {                       // roofs
       vec3 alb = mix(vCol, vec3(0.44, 0.45, 0.47), 0.65);
-      c = alb * lightOf(n);
+      alb *= mix(1.0, 0.82 + 0.36 * n2(vW.xz * 0.8), near);
+      c = alb * L;
     } else {
-      float ao = mix(0.62, 1.0, smoothstep(0.0, 28.0, vW.y));
-      vec3 wall = vCol * lightOf(n) * ao;
+      float ao = mix(0.6, 1.0, smoothstep(0.0, 28.0, vW.y));
+      vec2 g = vUv.xy;
+      float grain = mix(1.0, 0.9 + 0.2 * n2(vec2(g.x * 9.0, g.y * 14.0) + sd), near);
+      vec3 wall = vCol * grain * L * ao;
       c = wall;
       if (style < 1.5) {
-        vec2 g = vUv.xy; vec2 f = fract(g); vec2 id = floor(g);
+        vec2 f = fract(g); vec2 id = floor(g);
         bool ground = g.y < 1.0;
+        bool parapet = g.y > vUv.w;
         vec2 lo = style < 0.5 ? vec2(0.24, 0.26) : vec2(0.05, 0.10);
         vec2 hi = style < 0.5 ? vec2(0.76, 0.80) : vec2(0.95, 0.90);
         if (ground) { lo = vec2(0.08, 0.06); hi = vec2(0.92, 0.80); }
         vec2 fw = fwidth(g) + 1e-4;
+        float far = smoothstep(0.3, 0.9, max(fw.x, fw.y));
         vec2 m2 = smoothstep(lo - fw, lo + fw, f) * (1.0 - smoothstep(hi - fw, hi + fw, f));
         float avg = (hi.x - lo.x) * (hi.y - lo.y);
-        float m = mix(m2.x * m2.y, avg, smoothstep(0.3, 0.9, max(fw.x, fw.y)));
-        float h1 = hash21(id + vSeed * 91.7);
-        float h2 = hash21(id * 1.7 + vSeed * 13.1 + 5.0);
+        float m = parapet ? 0.0 : mix(m2.x * m2.y, avg, far);
+        float h1 = hash21(id + sd * 3.0);
+        float h2 = hash21(id * 2.0 + sd * 5.0 + 5.0);
+        float h3 = hash21(id * 3.0 + sd * 7.0 + 11.0);
         vec3 r = reflect(view, n); r.y = abs(r.y) * 0.8 + 0.1;
         vec3 glass = mix(vec3(0.09, 0.13, 0.18), vCol * 0.5, 0.35) * (0.75 + 0.5 * h1) * (0.35 + 0.65 * (1.0 - uNight));
         glass = mix(glass, skyColor(normalize(r)), 0.42) * ao;
@@ -195,31 +242,49 @@ const buildingMat = shader(/* glsl */`
         float lit = step(1.0 - litP, h1) * uNight;
         vec3 warm = mix(vec3(1.0, 0.80, 0.46), vec3(0.78, 0.88, 1.0), step(0.78, h2));
         glass += warm * lit * (0.55 + 0.6 * h2);
+        if (!ground) {
+          // window blinds drawn part-way down, and a centre mullion on curtain walls
+          float wy = clamp((f.y - lo.y) / (hi.y - lo.y), 0.0, 1.0);
+          float bl = step(0.45, h3) * (0.2 + 0.6 * h2);
+          vec3 blind = vec3(0.80, 0.78, 0.72) * (L * 0.5 + 0.12 + warm * lit * 0.55);
+          float bw = fw.y / (hi.y - lo.y);
+          glass = mix(glass, blind, smoothstep(1.0 - bl - bw, 1.0 - bl + bw, wy) * step(0.01, bl) * 0.8 * (1.0 - far));
+          if (style > 0.5) glass = mix(glass, wall * 0.65, (1.0 - smoothstep(0.012, 0.012 + fw.x, abs(f.x - 0.5))) * 0.85 * (1.0 - far));
+        }
         c = mix(wall, glass, m);
+        c *= 1.0 - 0.28 * (1.0 - smoothstep(0.0, 0.05 + fw.y, f.y)) * (1.0 - far);     // floor-slab shadow line
+        if (parapet) c = wall * 0.8;
+        if (ground && f.y > 0.83 && f.y < 0.96 && hash21(vec2(id.x, sd)) > 0.45) {   // shop signs
+          vec3 sg = 0.22 + 0.55 * vec3(hash21(vec2(id.x, 1.0) + sd), hash21(vec2(id.x, 2.0) + sd), hash21(vec2(id.x, 3.0) + sd));
+          c = mix(c, sg * (L * ao + 0.55 * uNight), (1.0 - far) * step(0.06, f.x) * step(f.x, 0.94));
+        }
       }
     }
     gl_FragColor = vec4(fogged(c, vW), 1.0);
   }
 `);
 
-// Generic lit vertex-colour material (trees, trains, the L, props). Supports instancing.
+// Generic lit vertex-colour material (trees, trains, the L, cars, lamps, props). Supports instancing.
+// Colours above 1.5 are treated as light sources that glow at night (lamp heads, head/tail lights).
 const litMat = shader(/* glsl */`
-  attribute vec3 aCol; varying vec3 vCol; varying vec3 vN; varying vec3 vW;
+  attribute vec3 aCol; varying vec3 vCol; varying vec3 vN; varying vec3 vW; varying float vE;
   void main(){
     vec4 p = vec4(position, 1.0); vec3 n = normal; vCol = aCol;
+    vE = step(1.5, max(aCol.r, max(aCol.g, aCol.b)));
     #ifdef USE_INSTANCING
       p = instanceMatrix * p; n = mat3(instanceMatrix) * n;
     #endif
     #ifdef USE_INSTANCING_COLOR
-      vCol *= instanceColor;
+      if (vE < 0.5) vCol *= instanceColor;
     #endif
     p = modelMatrix * p; vN = normalize(mat3(modelMatrix) * n); vW = p.xyz;
     gl_Position = projectionMatrix * viewMatrix * p;
   }
 `, /* glsl */`
-  varying vec3 vCol; varying vec3 vN; varying vec3 vW;
+  varying vec3 vCol; varying vec3 vN; varying vec3 vW; varying float vE;
   void main(){
-    vec3 c = vCol * lightOf(normalize(vN));
+    vec3 n = normalize(vN);
+    vec3 c = vE > 0.5 ? vCol * (0.13 + 0.5 * uNight) : vCol * lightSh(n, vW);
     gl_FragColor = vec4(fogged(c, vW), 1.0);
   }
 `);
@@ -378,6 +443,7 @@ function mapLine(pts, w, stroke) {
 }
 
 const treeSpots = [];
+let ROADS = [];
 function buildGround() {
   const rnd = mulberry(7);
   mctx.fillStyle = '#39424d'; mctx.fillRect(0, 0, mapCv.width, mapCv.height);
@@ -425,6 +491,8 @@ function buildGround() {
   for (const pl of CITY.pl) { const pts = dec(pl); r.ribbon(pts, 2.6, C.pier); mapLine(pts, 1, '#59626d'); }
   for (const rl of CITY.rail) r.ribbon(dec(rl), 1.7, C.rail);
   const roads = CITY.r.map((a) => ({ c: a[0], ni: a[1], pts: dec(a.slice(2)) })).sort((a, b) => b.c - a.c);
+  ROADS = roads;
+  for (const rd of roads) if (rd.c <= 3) r.ribbon(rd.pts, ROAD_W[rd.c] + 6.5, [174, 170, 160]);     // sidewalks
   for (const rd of roads) {
     r.ribbon(rd.pts, ROAD_W[rd.c], C.roads[rd.c], rd.c <= 1 ? 2 : rd.c <= 2 ? 1 : 0);
     if (rd.c <= 4) mapLine(rd.pts, rd.c <= 1 ? 3.2 : rd.c <= 3 ? 2.2 : 1, rd.c <= 3 ? '#77818d' : '#566070');
@@ -472,7 +540,8 @@ function buildBuildings() {
     const wallTop = rt ? Math.max(m, h - rh) : h;
     const H = wallTop - m;
     const vTop = H < 5.2 ? 1 : 1 + Math.max(1, Math.round((H - 4.2) / 3.6));
-    const vert = (x, y, z, n, u, v, s) => { T.pos.push(x, y, z); T.nrm.push(n[0], n[1], n[2]); T.col.push(c[0], c[1], c[2], sd); T.uv.push(u, v, s); return T.n++; };
+    const vEnd = H < 5.2 ? vTop : vTop + 0.3;
+    const vert = (x, y, z, n, u, v, s) => { T.pos.push(x, y, z); T.nrm.push(n[0], n[1], n[2]); T.col.push(c[0], c[1], c[2], sd); T.uv.push(u, v, s, vTop); return T.n++; };
 
     let minx = 1e9, miny = 1e9, maxx = -1e9, maxy = -1e9, sx = 0, sy = 0;
     for (let r = 0; r < rings.length; r++) {
@@ -485,7 +554,7 @@ function buildBuildings() {
         const nn = [Math.round(dy / len * 127), 0, Math.round(dx / len * 127)];
         if (H > 0.05) {
           const st = len < 1.7 ? 2 : style, nb = Math.max(1, Math.round(len / 3.3));
-          const i0 = vert(ax, m, -ay, nn, 0, 0, st), i1 = vert(bx, m, -by, nn, nb, 0, st), i2 = vert(bx, wallTop, -by, nn, nb, vTop, st), i3 = vert(ax, wallTop, -ay, nn, 0, vTop, st);
+          const i0 = vert(ax, m, -ay, nn, 0, 0, st), i1 = vert(bx, m, -by, nn, nb, 0, st), i2 = vert(bx, wallTop, -by, nn, nb, vEnd, st), i3 = vert(ax, wallTop, -ay, nn, 0, vEnd, st);
           T.idx.push(i0, i1, i2, i0, i2, i3);
         }
         if (rt && r === 0) {   // pyramidal / domed cap: fan to the centroid
@@ -515,6 +584,36 @@ function buildBuildings() {
         if (m > 0.5) add(m, [0, -127, 0], true);
       }
     }
+    // rooftop plant rooms and lift overruns on larger flat roofs
+    if (!rt && h > 16 && kind !== 8) {
+      let area = 0, best = 0, ang = 0;
+      for (let i = 0, n = outer.length; i < n; i += 2) {
+        const ax = outer[i], ay = outer[i + 1], bx = outer[(i + 2) % n], by = outer[(i + 3) % n];
+        area += ax * by - bx * ay;
+        const len = Math.hypot(bx - ax, by - ay); if (len > best) { best = len; ang = Math.atan2(by - ay, bx - ax); }
+      }
+      area = Math.abs(area) / 2;
+      if (area > 260) {
+        const count = 1 + (area > 900 ? 1 : 0) + (area > 2600 ? 1 : 0) + (area > 6000 ? 2 : 0);
+        const wallC = c, ca = Math.cos(ang), sa = Math.sin(ang), lim = Math.min(7, Math.sqrt(area) * 0.16);
+        c = [c[0] * 0.45 + 62, c[1] * 0.45 + 64, c[2] * 0.45 + 68];
+        for (let k = 0; k < count; k++) {
+          const px = minx + (0.2 + rnd() * 0.6) * (maxx - minx), py = miny + (0.2 + rnd() * 0.6) * (maxy - miny);
+          const bw = 1.4 + rnd() * lim, bd = 1.4 + rnd() * lim, bh = 1.6 + rnd() * 3.4;
+          const q = [[-bw, -bd], [bw, -bd], [bw, bd], [-bw, bd]].map(([u, v]) => [px + u * ca - v * sa, py + u * sa + v * ca]);
+          if (!q.every(([x, y]) => pip(outer, x, y)) || rings.slice(1).some((hr) => q.some(([x, y]) => pip(hr, x, y)))) continue;
+          for (let e = 0; e < 4; e++) {
+            const [ax, ay] = q[e], [bx, by] = q[(e + 1) % 4], dx = bx - ax, dy = by - ay, len = Math.hypot(dx, dy);
+            const nn = [Math.round(dy / len * 127), 0, Math.round(dx / len * 127)];
+            const i0 = vert(ax, h, -ay, nn, 0, 0, 2), i1 = vert(bx, h, -by, nn, 0, 0, 2), i2 = vert(bx, h + bh, -by, nn, 0, 0, 2), i3 = vert(ax, h + bh, -ay, nn, 0, 0, 2);
+            T.idx.push(i0, i1, i2, i0, i2, i3);
+          }
+          const j = q.map(([x, y]) => vert(x, h + bh, -y, up, 0, 0, 3));
+          T.idx.push(j[0], j[1], j[2], j[0], j[2], j[3]);
+        }
+        c = wallC;
+      }
+    }
     // collision / picking / minimap
     if (kind !== 8 && h >= 2.5) {
       const fp = { pts: outer, minx, miny, maxx, maxy, h, m, ni, kind };
@@ -528,10 +627,10 @@ function buildBuildings() {
     g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(T.pos), 3));
     g.setAttribute('aNrm', new THREE.BufferAttribute(new Int8Array(T.nrm), 3, true));
     g.setAttribute('aCol', new THREE.BufferAttribute(new Uint8Array(T.col), 4, true));
-    g.setAttribute('aUv', new THREE.BufferAttribute(new Float32Array(T.uv), 3));
+    g.setAttribute('aUv', new THREE.BufferAttribute(new Float32Array(T.uv), 4));
     g.setIndex(new THREE.BufferAttribute(new Uint32Array(T.idx), 1));
     g.computeBoundingSphere();
-    scene.add(new THREE.Mesh(g, buildingMat));
+    const bmesh = new THREE.Mesh(g, buildingMat); bmesh.layers.enable(1); scene.add(bmesh);
   }
 }
 
@@ -584,7 +683,7 @@ function buildTrees() {
       col.setRGB(0.36 + t * 0.2, 0.62 + rnd() * 0.2, 0.26 + t * 0.1);
       mesh.setColorAt(i, col);
     }
-    mesh.computeBoundingSphere();
+    mesh.computeBoundingSphere(); mesh.layers.enable(1);
     scene.add(mesh);
   }
 }
@@ -610,7 +709,7 @@ function buildEl() {
     }
     mapLine(pts, 1.6, '#c9824a');
   }
-  const mesh = new THREE.Mesh(lb.geometry(), litMat); mesh.frustumCulled = false; scene.add(mesh);
+  const mesh = new THREE.Mesh(lb.geometry(), litMat); mesh.frustumCulled = false; mesh.layers.enable(1); scene.add(mesh);
 
   // trains shuttle along the longest stretches of track
   const car = new LitBuilder();
@@ -627,7 +726,7 @@ function buildEl() {
     for (let k = 0; k < count; k++) trains.push({ pts, cum, len, phase: k * len + trains.length * 137 });
   }
   trainMesh = new THREE.InstancedMesh(car.geometry(), litMat, trains.length * CARS);
-  trainMesh.frustumCulled = false; scene.add(trainMesh);
+  trainMesh.frustumCulled = false; trainMesh.layers.enable(1); scene.add(trainMesh);
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), one = new THREE.Vector3(1, 1, 1), p = new THREE.Vector3();
   updateTrains = (time) => {
     let k = 0;
@@ -649,6 +748,113 @@ function buildEl() {
   };
 }
 let updateTrains = () => {};
+
+// ───────────────────────────── street lamps and traffic ─────────────────────────────
+let carMesh; const cars = []; let carRoads = [], carTotal = 0;
+const _cm = new THREE.Matrix4(), _cq = new THREE.Quaternion(), _cp = new THREE.Vector3(), _c1 = new THREE.Vector3(1, 1, 1), _cY = new THREE.Vector3(0, 1, 0);
+function buildStreetLife() {
+  const lb = new LitBuilder(), steel = [0.2, 0.21, 0.23];
+  lb.box(0, 4, 0, 0.2, 8, 0.2, 0, steel); lb.box(0.9, 7.95, 0, 1.9, 0.12, 0.12, 0, steel); lb.box(1.75, 7.85, 0, 0.7, 0.14, 0.34, 0, [3, 2.6, 1.8]);
+  const geo = lb.geometry(), groups = new Map(), TT = 500;
+  let side = 1, total = 0;
+  for (const rd of ROADS) {
+    if (rd.c > 2) continue;
+    const pts = rd.pts, off = ROAD_W[rd.c] / 2 + 1.7; let carry = 20;
+    for (let i = 0; i + 3 < pts.length && total < 6000; i += 2) {
+      const ax = pts[i], ay = pts[i + 1], dx = pts[i + 2] - ax, dy = pts[i + 3] - ay, len = Math.hypot(dx, dy);
+      if (len < 0.1) continue;
+      const ux = dx / len, uy = dy / len;
+      for (let d = carry; d < len; d += 46) {
+        side = -side;
+        const x = ax + ux * d - uy * off * side, y = ay + uy * d + ux * off * side;
+        if (blockedAt(x, y, 0, 3)) continue;
+        let inRoad = false; const cell = gridGet(rGrid, x, y);
+        if (cell) for (const sg of cell) if (segDist(sg, x, y) < sg.hw + 0.4) { inRoad = true; break; }
+        if (inRoad) continue;                       // never stand a lamp in a carriageway or crossing
+        const k = Math.floor(x / TT) * 1000 + Math.floor(y / TT);
+        let a = groups.get(k); if (!a) groups.set(k, a = []);
+        a.push(x, y, Math.atan2(-ux * side, uy * side)); total++;
+      }
+      carry = (carry - len) % 46; if (carry < 0) carry += 46;
+    }
+  }
+  for (const a of groups.values()) {
+    const n = a.length / 3, mesh = new THREE.InstancedMesh(geo, litMat, n);
+    for (let i = 0; i < n; i++) { _cp.set(a[i * 3], 0, -a[i * 3 + 1]); _cq.setFromAxisAngle(_cY, a[i * 3 + 2]); mesh.setMatrixAt(i, _cm.compose(_cp, _cq, _c1)); }
+    mesh.computeBoundingSphere(); scene.add(mesh);
+  }
+
+  // traffic
+  for (const rd of ROADS) {
+    if (rd.c > 3) continue;
+    const cum = [0]; for (let i = 2; i < rd.pts.length; i += 2) cum.push(cum[cum.length - 1] + Math.hypot(rd.pts[i] - rd.pts[i - 2], rd.pts[i + 1] - rd.pts[i - 1]));
+    const len = cum[cum.length - 1]; if (len < 70) continue;
+    carTotal += len; carRoads.push({ pts: rd.pts, cum, len, lane: Math.min(ROAD_W[rd.c] * 0.22, 3.2), acc: carTotal });
+  }
+  const cb = new LitBuilder(), paint = [1, 1, 1], tyre = [0.07, 0.07, 0.08];
+  cb.box(0, 0.62, 0, 4.4, 0.62, 1.8, 0, paint); cb.box(-0.25, 1.2, 0, 2.3, 0.56, 1.62, 0, [0.1, 0.13, 0.17]); cb.box(-0.25, 1.5, 0, 2.1, 0.06, 1.5, 0, paint);
+  for (const sx of [1.4, -1.4]) for (const sz of [0.85, -0.85]) cb.box(sx, 0.34, sz, 0.68, 0.68, 0.24, 0, tyre);
+  for (const sz of [0.6, -0.6]) { cb.box(2.2, 0.7, sz, 0.06, 0.16, 0.36, 0, [3, 3, 2.6]); cb.box(-2.2, 0.72, sz, 0.06, 0.14, 0.36, 0, [3, 0.25, 0.2]); }
+  const N = carRoads.length ? 1600 : 0, rnd = mulberry(4242), col = new THREE.Color();
+  const pal = [[0.9, 0.9, 0.9], [0.12, 0.12, 0.13], [0.6, 0.62, 0.65], [0.35, 0.36, 0.38], [0.62, 0.1, 0.08], [0.1, 0.2, 0.42], [0.72, 0.66, 0.5], [0.95, 0.75, 0.1]];
+  carMesh = new THREE.InstancedMesh(cb.geometry(), litMat, Math.max(1, N)); carMesh.count = N; carMesh.frustumCulled = false; carMesh.layers.enable(1); scene.add(carMesh);
+  for (let i = 0; i < N; i++) {
+    const c = { r: null, s: 0, v: 7 + rnd() * 6, dir: 1, seg: 0 }; respawnCar(c, rnd); c.s = rnd() * c.r.len; cars.push(c);
+    const pc = pal[(rnd() * pal.length) | 0]; carMesh.setColorAt(i, col.setRGB(pc[0], pc[1], pc[2]));
+  }
+}
+function respawnCar(c, rnd = Math.random) {
+  const t = rnd() * carTotal; let lo = 0, hi = carRoads.length - 1;
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (carRoads[mid].acc < t) lo = mid + 1; else hi = mid; }
+  c.r = carRoads[lo]; c.s = 0; c.dir = rnd() < 0.5 ? 1 : -1; c.seg = 0;
+}
+function updateCars(dt) {
+  if (!carMesh || !cars.length) return;
+  for (let i = 0; i < cars.length; i++) {
+    const c = cars[i]; c.s += c.v * dt;
+    if (c.s >= c.r.len) respawnCar(c);
+    const r = c.r, q = c.dir > 0 ? c.s : r.len - c.s, cum = r.cum;
+    let lo = 0, hi = cum.length - 1;
+    while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (cum[mid] <= q) lo = mid; else hi = mid; }
+    const ax = r.pts[lo * 2], ay = r.pts[lo * 2 + 1], bx = r.pts[hi * 2], by = r.pts[hi * 2 + 1], sl = cum[hi] - cum[lo] || 1, f = (q - cum[lo]) / sl;
+    const tx = (bx - ax) / sl * c.dir, ty = (by - ay) / sl * c.dir;
+    _cp.set(ax + (bx - ax) * f + ty * r.lane, 0, -(ay + (by - ay) * f - tx * r.lane));
+    _cq.setFromAxisAngle(_cY, Math.atan2(ty, tx));
+    carMesh.setMatrixAt(i, _cm.compose(_cp, _cq, _c1));
+  }
+  carMesh.instanceMatrix.needsUpdate = true;
+}
+
+// ───────────────────────────── cast shadows ─────────────────────────────
+const SH_SIZE = 2048;
+const shadowRT = new THREE.WebGLRenderTarget(SH_SIZE, SH_SIZE, { depthBuffer: true });
+shadowRT.depthTexture = new THREE.DepthTexture(SH_SIZE, SH_SIZE);
+shadowRT.depthTexture.minFilter = shadowRT.depthTexture.magFilter = THREE.NearestFilter;
+U.uShadowMap.value = shadowRT.depthTexture;
+const shadowCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 1000);
+shadowCam.layers.set(1);
+const depthMat = new THREE.MeshBasicMaterial({ colorWrite: false, side: THREE.DoubleSide });
+const _sv = new THREE.Vector3(), _sc = new THREE.Vector3(), _sr = new THREE.Vector3(), _su = new THREE.Vector3();
+function renderShadow() {
+  if (!U.uShadowOn.value) return;
+  const sun = U.uSun.value;
+  const half = clamp(camera.position.y * 2.0 + 230, 260, 4200);
+  camera.getWorldDirection(_sv); _sv.y = 0; if (_sv.lengthSq() < 1e-4) _sv.set(0, 0, -1); _sv.normalize();
+  _sc.set(camera.position.x + _sv.x * half * 0.55, 0, camera.position.z + _sv.z * half * 0.55);
+  const k = Math.min(9, Math.sqrt(Math.max(0, 1 - sun.y * sun.y)) / Math.max(0.05, sun.y)), D = half * k + 900;
+  shadowCam.position.copy(_sc).addScaledVector(sun, D); shadowCam.up.set(0, 1, 0); shadowCam.lookAt(_sc); shadowCam.updateMatrixWorld();
+  const tex = 2 * half / SH_SIZE;                         // snap to whole texels so shadows do not shimmer
+  _sr.setFromMatrixColumn(shadowCam.matrixWorld, 0); _su.setFromMatrixColumn(shadowCam.matrixWorld, 1);
+  const px = shadowCam.position.dot(_sr), py = shadowCam.position.dot(_su);
+  shadowCam.position.addScaledVector(_sr, Math.round(px / tex) * tex - px).addScaledVector(_su, Math.round(py / tex) * tex - py);
+  shadowCam.left = -half; shadowCam.right = half; shadowCam.top = half; shadowCam.bottom = -half; shadowCam.near = 1; shadowCam.far = 2 * half * k + 1600;
+  shadowCam.updateProjectionMatrix(); shadowCam.updateMatrixWorld(true);
+  U.uShadowM.value.multiplyMatrices(shadowCam.projectionMatrix, shadowCam.matrixWorldInverse);
+  U.uShadowTexel.value = tex; U.uShadowBias.value = (tex * 0.6 + 0.12) / (shadowCam.far - shadowCam.near);
+  renderer.setRenderTarget(shadowRT); renderer.clear();
+  scene.overrideMaterial = depthMat; renderer.render(scene, shadowCam); scene.overrideMaterial = null;
+  renderer.setRenderTarget(null);
+}
 
 // ───────────────────────────── landmarks ─────────────────────────────
 const LANDMARKS = [
@@ -684,12 +890,12 @@ const saveFound = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(LA
 let wheel, jet;
 function buildProps() {
   // beacons
-  const beamGeo = new THREE.CylinderGeometry(5, 5, 1, 14, 1, true); beamGeo.translate(0, 0.5, 0);
+  const beamGeo = new THREE.CylinderGeometry(3, 3, 1, 14, 1, true); beamGeo.translate(0, 0.5, 0);
   for (const l of LANDMARKS) {
     const mat = new THREE.ShaderMaterial({
       uniforms: { uC: { value: new THREE.Vector3(1, 0.78, 0.3) }, uT: U.uTime, uA: { value: 1 } },
       vertexShader: 'varying float vY; varying vec3 vN2; varying vec3 vV; void main(){ vY = position.y; vec4 w = modelMatrix * vec4(position,1.0); vN2 = normalize(mat3(modelMatrix)*vec3(normal.x,0.0,normal.z)); vV = normalize(cameraPosition - w.xyz); gl_Position = projectionMatrix * viewMatrix * w; }',
-      fragmentShader: 'uniform vec3 uC; uniform float uT, uA; varying float vY; varying vec3 vN2; varying vec3 vV; void main(){ float a = (1.0 - vY) * (0.22 + 0.12 * sin(uT * 2.0 + vY * 30.0)); a *= 0.35 + 0.65 * abs(dot(normalize(vN2), normalize(vec3(vV.x, 0.0, vV.z)))); gl_FragColor = vec4(uC * a * uA, 1.0); }',
+      fragmentShader: 'uniform vec3 uC; uniform float uT, uA; varying float vY; varying vec3 vN2; varying vec3 vV; void main(){ float a = (1.0 - vY) * (0.16 + 0.08 * sin(uT * 2.0 + vY * 30.0)); a *= 0.35 + 0.65 * abs(dot(normalize(vN2), normalize(vec3(vV.x, 0.0, vV.z)))); gl_FragColor = vec4(uC * a * uA, 1.0); }',
       transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
     });
     const beam = new THREE.Mesh(beamGeo, mat);
@@ -716,7 +922,7 @@ function buildProps() {
     const mm = new THREE.Matrix4().compose(new THREE.Vector3(np.x + lean * 7, WY / 2, -np.y + sgn * 3.2), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, lean * 0.42)), new THREE.Vector3(1, 1, 1));
     lb.geo(g, mm, [0.9, 0.9, 0.92]);
   }
-  const props = new THREE.Mesh(lb.geometry(), litMat); props.frustumCulled = false; scene.add(props);
+  const props = new THREE.Mesh(lb.geometry(), litMat); props.frustumCulled = false; props.layers.enable(1); scene.add(props);
 
   const wb = new LitBuilder(), white = [0.93, 0.93, 0.95];
   wb.geo(new THREE.TorusGeometry(WR, 0.45, 6, 48), M4(0, 0, -1.6), white);
@@ -732,7 +938,7 @@ function buildProps() {
     wb.geo(new THREE.IcosahedronGeometry(1.9, 1), M4(Math.cos(a) * (WR + 0.4), Math.sin(a) * (WR + 0.4), 0, 1, 0.95, 1), i % 2 ? [0.16, 0.3, 0.62] : [0.12, 0.22, 0.48]);
   }
   wheel = new THREE.Mesh(wb.geometry(), litMat);
-  wheel.position.set(np.x, WY, -np.y); wheel.rotation.y = 0.12; wheel.frustumCulled = false; scene.add(wheel);
+  wheel.position.set(np.x, WY, -np.y); wheel.rotation.y = 0.12; wheel.frustumCulled = false; wheel.layers.enable(1); scene.add(wheel);
 
   // fountain jet
   const jg = new THREE.CylinderGeometry(0.25, 1.6, 1, 10, 1, true); jg.translate(0, 0.5, 0);
@@ -832,7 +1038,7 @@ function setMode(m) {
 function refreshKeys() {
   if (shooter.on) {
     $('modeLine').innerHTML = 'Mode: <i>Shooter</i>';
-    $('keyLines').innerHTML = '<kbd>Click</kbd> fire · <kbd>R</kbd> reload · <kbd>WASD</kbd> move · <kbd>Shift</kbd> sprint<br><kbd>Space</kbd> jump · <kbd>G</kbd> quit shooter · <kbd>T</kbd> time · <kbd>H</kbd> help';
+    $('keyLines').innerHTML = '<kbd>Click</kbd> fire · <kbd>Right-click</kbd> aim · <kbd>R</kbd> reload · <kbd>Shift</kbd> sprint<br><kbd>Space</kbd> jump · <kbd>G</kbd> quit shooter · <kbd>T</kbd> time · <kbd>H</kbd> help';
     return;
   }
   const fly = player.mode === 'fly';
@@ -1083,13 +1289,15 @@ const look = (dx, dy, k) => { player.yaw -= dx * k; player.pitch = clamp(player.
 canvas.addEventListener('mousedown', (e) => {
   if (!started || mapOpen) return;
   dragging = true;
+  if (shooter.on && e.button === 2) shooter.aim = true;
   if (shooter.on && e.button === 0) { audioInit(); if (shooter.dead) { if (shooter.t - shooter.deadT > 1.2) startShooter(false); } else shooter.firing = true; }
   if (!isTouch && !document.pointerLockElement && canvas.requestPointerLock) { try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* drag-look fallback */ } }
 });
-window.addEventListener('mouseup', () => { dragging = false; shooter.firing = false; });
+window.addEventListener('mouseup', (e) => { dragging = false; if (e.button === 2) shooter.aim = false; else shooter.firing = false; });
+window.addEventListener('contextmenu', (e) => { if (started) e.preventDefault(); });
 window.addEventListener('mousemove', (e) => {
   if (!started || mapOpen) return;
-  if (document.pointerLockElement === canvas) look(e.movementX, e.movementY, 0.0022);
+  if (document.pointerLockElement === canvas) look(e.movementX, e.movementY, 0.0022 * (1 - 0.5 * shooter.ads));
   else if (dragging) look(-e.movementX, -e.movementY, 0.004);
 });
 window.addEventListener('wheel', (e) => {
@@ -1120,7 +1328,7 @@ const touchEnd = (e) => { for (const t of e.changedTouches) { if (t.identifier =
 window.addEventListener('touchend', touchEnd); window.addEventListener('touchcancel', touchEnd);
 for (const b of document.querySelectorAll('#tbtns button')) {
   const k = b.dataset.k;
-  const down = (e) => { e.preventDefault(); if (k === 'up' || k === 'down') touch[k] = true; else if (k === 'boost') { touch.boost = !touch.boost; b.style.background = touch.boost ? 'rgba(255,201,77,.6)' : ''; } else if (k === 'mode') { if (!shooter.on) setMode(player.mode === 'fly' ? 'walk' : 'fly'); } else if (k === 'fire') { audioInit(); shooter.firing = true; } else if (k === 'reload') reloadGun(); else if (k === 'fps') { if (shooter.on && shooter.dead) startShooter(false); else toggleShooter(); } else if (k === 'map') { if (!shooter.on) toggleMap(); } else if (k === 'time') cycleTime(); };
+  const down = (e) => { e.preventDefault(); if (k === 'up' || k === 'down') touch[k] = true; else if (k === 'boost') { touch.boost = !touch.boost; b.style.background = touch.boost ? 'rgba(255,201,77,.6)' : ''; } else if (k === 'mode') { if (!shooter.on) setMode(player.mode === 'fly' ? 'walk' : 'fly'); } else if (k === 'fire') { audioInit(); shooter.firing = true; } else if (k === 'reload') reloadGun(); else if (k === 'aim') { shooter.aim = !shooter.aim; } else if (k === 'fps') { if (shooter.on && shooter.dead) startShooter(false); else toggleShooter(); } else if (k === 'map') { if (!shooter.on) toggleMap(); } else if (k === 'time') cycleTime(); };
   const upf = (e) => { e.preventDefault(); if (k === 'up' || k === 'down') touch[k] = false; if (k === 'fire') shooter.firing = false; };
   b.addEventListener('touchstart', down, { passive: false }); b.addEventListener('touchend', upf, { passive: false });
   b.addEventListener('mousedown', down); b.addEventListener('mouseup', upf);
@@ -1147,9 +1355,9 @@ $('goFps').addEventListener('click', () => { const fresh = !started; begin(); st
 
 // ───────────────────────────── shooter mode ─────────────────────────────
 // A simple wave-based first-person shooter against bots, played on the streets of the map.
-const MAX_BOTS = 28, MAG = 30;
+const MAX_BOTS = 28, MAG = 30, FOV = 68;
 const shooter = { on: false, dead: false, deadT: 0, firing: false, hp: 100, ammo: MAG, reload: 0, cool: 0, wave: 0, score: 0, kills: 0,
-  waveT: 0, pending: false, lastHurt: -99, recoil: 0, vig: 0, t: 0, bots: [], best: 0, savedLabels: true, msgT: 0 };
+  waveT: 0, pending: false, lastHurt: -99, recoil: 0, vig: 0, t: 0, aim: false, ads: 0, dmgT: 0, dmgX: 0, dmgY: 0, bots: [], best: 0, savedLabels: true, msgT: 0 };
 try { shooter.best = +localStorage.getItem('chicago3d.best.v1') || 0; } catch (e) { /* ignore */ }
 
 const botMat = shader(/* glsl */`
@@ -1162,8 +1370,8 @@ const botMat = shader(/* glsl */`
   varying vec3 vCol; varying vec3 vN; varying vec3 vW;
   void main(){ vec3 c = vCol * (lightOf(normalize(vN)) + 0.32); gl_FragColor = vec4(fogged(c, vW), 1.0); }
 `);
-let botMesh, gun, flash, tracerMesh;
-const TR_N = 24, trPos = new Float32Array(TR_N * 6), trCol = new Float32Array(TR_N * 6), trLife = new Float32Array(TR_N), trBase = new Float32Array(TR_N * 3);
+let botMesh, legL, legR, gun, flash, tracerMesh;
+const TR_N = 80, trPos = new Float32Array(TR_N * 6), trCol = new Float32Array(TR_N * 6), trLife = new Float32Array(TR_N), trBase = new Float32Array(TR_N * 3);
 let trNext = 0;
 function tracer(ax, ay, az, bx, by, bz, r, g, b) {
   const i = trNext++ % TR_N;
@@ -1172,14 +1380,18 @@ function tracer(ax, ay, az, bx, by, bz, r, g, b) {
 function initShooter() {
   // bot model: local +x is forward, feet at y = 0
   const lb = new LitBuilder(), red = [0.82, 0.2, 0.14], dark = [0.16, 0.17, 0.2], pale = [0.78, 0.8, 0.84];
-  lb.box(0, 0.43, 0.15, 0.24, 0.86, 0.22, 0, dark); lb.box(0, 0.43, -0.15, 0.24, 0.86, 0.22, 0, dark);
+  lb.box(-0.2, 1.25, 0, 0.16, 0.5, 0.42, 0, [0.3, 0.33, 0.25]); lb.box(0, 1.9, 0, 0.36, 0.1, 0.36, 0, dark);      // backpack, helmet
   lb.box(0, 1.2, 0, 0.34, 0.68, 0.6, 0, red);
   lb.box(0, 1.2, 0.37, 0.2, 0.6, 0.14, 0, dark); lb.box(0.14, 1.28, -0.37, 0.48, 0.16, 0.14, 0, dark);
   lb.box(0, 1.71, 0, 0.3, 0.3, 0.3, 0, pale); lb.box(0.14, 1.73, 0, 0.06, 0.09, 0.26, 0, [1.0, 0.85, 0.2]);
   lb.box(0.5, 1.28, -0.37, 0.5, 0.09, 0.09, 0, [0.08, 0.08, 0.09]);
   botMesh = new THREE.InstancedMesh(lb.geometry(), botMat, MAX_BOTS);
   const one = new THREE.Color(1, 1, 1); for (let i = 0; i < MAX_BOTS; i++) botMesh.setColorAt(i, one);
-  botMesh.count = 0; botMesh.frustumCulled = false; scene.add(botMesh);
+  botMesh.count = 0; botMesh.frustumCulled = false; botMesh.layers.enable(1); scene.add(botMesh);
+  const lg = new LitBuilder(); lg.box(0, -0.43, 0, 0.24, 0.86, 0.22, 0, dark); lg.box(0.05, -0.8, 0, 0.34, 0.14, 0.25, 0, [0.05, 0.05, 0.06]);
+  const legGeo = lg.geometry();
+  legL = new THREE.InstancedMesh(legGeo, botMat, MAX_BOTS); legR = new THREE.InstancedMesh(legGeo, botMat, MAX_BOTS);
+  for (const l of [legL, legR]) { for (let i = 0; i < MAX_BOTS; i++) l.setColorAt(i, one); l.count = 0; l.frustumCulled = false; l.layers.enable(1); scene.add(l); }
 
   // first-person gun, attached to the camera
   scene.add(camera);
@@ -1273,15 +1485,16 @@ function startShooter(atDefault) {
   if (!S.on) { S.savedLabels = labelsOn; labelsOn = false; }
   Object.assign(S, { on: true, dead: false, firing: false, hp: 100, ammo: MAG, reload: 0, cool: 0, wave: 0, score: 0, kills: 0, waveT: 2.5, pending: true, lastHurt: -99, vig: 0 });
   S.bots.length = 0; gun.visible = true; document.body.classList.add('shooter');
-  fpsMsg('Shooter mode', isTouch ? 'Hold Fire to shoot. Bots are on their way.' : 'Click to fire · R to reload · G to quit', 2.4);
+  fpsMsg('Shooter mode', isTouch ? 'Hold Fire to shoot. Bots are on their way.' : 'Click to fire · right-click to aim · R to reload · G to quit', 2.4);
   refreshKeys();
 }
 function stopShooter() {
-  const S = shooter; S.on = false; S.dead = false; S.firing = false; S.bots.length = 0; botMesh.count = 0; gun.visible = false;
+  const S = shooter; S.on = false; S.dead = false; S.firing = false; S.bots.length = 0; botMesh.count = legL.count = legR.count = 0; gun.visible = false; S.aim = false; S.ads = 0; camera.fov = FOV; camera.updateProjectionMatrix(); $('dmgDir').style.opacity = 0;
   document.body.classList.remove('shooter'); labelsOn = S.savedLabels; fpsMsg('', '', 0); $('vignette').style.opacity = 0; refreshKeys();
 }
-function hurtPlayer(d) {
+function hurtPlayer(d, fx, fy) {
   const S = shooter; if (S.dead) return;
+  S.dmgT = 1; S.dmgX = fx; S.dmgY = fy;
   S.hp -= d; S.lastHurt = S.t; S.vig = 1; sfxTone(150, 0.14, 0.22, 'sawtooth', 70);
   if (S.hp <= 0) {
     S.hp = 0; S.dead = true; S.deadT = S.t; S.firing = false;
@@ -1292,7 +1505,7 @@ function hurtPlayer(d) {
 }
 function playerFire() {
   const S = shooter; S.ammo--; S.cool = 0.105; S.recoil = 1;
-  const spread = 0.005 + Math.min(0.03, Math.hypot(player.vx, player.vz) * 0.0016) + (player.onGround ? 0 : 0.02);
+  const spread = (0.005 + Math.min(0.03, Math.hypot(player.vx, player.vz) * 0.0016) + (player.onGround ? 0 : 0.02)) * (1 - 0.75 * S.ads);
   const yaw = player.yaw + (Math.random() - 0.5) * spread * 2, pitch = player.pitch + (Math.random() - 0.5) * spread * 2;
   const dx = -Math.sin(yaw) * Math.cos(pitch), dy = Math.cos(yaw) * Math.cos(pitch), dz = Math.sin(pitch);
   const ox = player.x, oy = player.y, oz = player.alt;
@@ -1308,14 +1521,20 @@ function playerFire() {
   const cy = Math.cos(player.yaw), sy = Math.sin(player.yaw);
   tracer(ox + dx * 0.9 + cy * 0.2, oy + dy * 0.9 + sy * 0.2, oz + dz * 0.9 - 0.17, ox + dx * tHit, oy + dy * tHit, oz + dz * tHit, 1, 0.85, 0.45);
   sfxShot(0.3, 1);
+  if (!target && tHit < 399) {                       // sparks where the round strikes
+    const hx = ox + dx * (tHit - 0.3), hy = oy + dy * (tHit - 0.3), hz = oz + dz * (tHit - 0.3);
+    for (let k = 0; k < 5; k++) tracer(hx, hy, hz, hx + (Math.random() - 0.5) * 0.9, hy + (Math.random() - 0.5) * 0.9, hz + Math.random() * 0.7, 1, 0.75, 0.35);
+  }
   if (target) {
     target.hp -= head ? 100 : 34; target.flash = 1;
     $('cross').classList.add('hit'); clearTimeout(playerFire._h); playerFire._h = setTimeout(() => $('cross').classList.remove('hit'), 110);
     if (target.hp <= 0) { target.dead = 0.001; S.kills++; S.score += head ? 150 : 100; sfxTone(620, 0.12, 0.12, 'square', 930); }
     else sfxTone(1100, 0.04, 0.07);
   }
-  player.pitch = Math.min(1.5, player.pitch + 0.011); player.yaw += (Math.random() - 0.5) * 0.006;
+  const kick = 1 - 0.5 * S.ads;
+  player.pitch = Math.min(1.5, player.pitch + 0.011 * kick); player.yaw += (Math.random() - 0.5) * 0.006 * kick;
 }
+const _lm = new THREE.Matrix4();
 const _bm = new THREE.Matrix4(), _bq = new THREE.Quaternion(), _bf = new THREE.Quaternion(), _bp = new THREE.Vector3(), _b1 = new THREE.Vector3(1, 1, 1);
 const _bc = new THREE.Color(), AX_Y = new THREE.Vector3(0, 1, 0), AX_Z = new THREE.Vector3(0, 0, 1);
 let hudCache = '';
@@ -1329,6 +1548,12 @@ function updateShooter(dt) {
     if (S.t - S.lastHurt > 5 && S.hp < 100) S.hp = Math.min(100, S.hp + dt * 6);
   }
   S.recoil = Math.max(0, S.recoil - dt * 9); S.vig = Math.max(0, S.vig - dt * 1.6);
+  S.ads += ((S.aim && !S.dead && S.reload <= 0 ? 1 : 0) - S.ads) * (1 - Math.exp(-dt * 14));
+  const fov = FOV - 28 * S.ads; if (Math.abs(camera.fov - fov) > 0.05) { camera.fov = fov; camera.updateProjectionMatrix(); }
+  if (S.dmgT > 0) {
+    S.dmgT = Math.max(0, S.dmgT - dt * 0.9);
+    const el = $('dmgDir'); el.style.opacity = S.dmgT; el.style.transform = `rotate(${Math.atan2(S.dmgX - player.x, S.dmgY - player.y) + player.yaw}rad)`;
+  }
 
   // bots
   let alive = 0;
@@ -1344,7 +1569,7 @@ function updateShooter(dt) {
       b.los = !S.dead && dist < 140 && seesPlayer(b.x, b.y);
       if (b.los && !had) b.cool = Math.max(b.cool, 0.45 + Math.random() * 0.6);
     }
-    let hx = 0, hy = 0;
+    let hx = 0, hy = 0; const ox0 = b.x, oy0 = b.y;
     if (b.detT > 0) { b.detT -= dt; hx = b.dhx; hy = b.dhy; }
     else if (!b.los || dist > 38) { hx = dx / dist; hy = dy / dist; }
     else if (dist < 11) { hx = -dx / dist; hy = -dy / dist; }
@@ -1360,6 +1585,7 @@ function updateShooter(dt) {
         if (free(ux, uy)) { b.x += ux * sp; b.y += uy * sp; b.dhx = ux; b.dhy = uy; b.detT = 0.6 + Math.random() * 0.7; hx = ux; hy = uy; break; }
       }
     }
+    b.walk = (b.walk || 0) + Math.hypot(b.x - ox0, b.y - oy0) * 3.1;
     // unstick: if a bot has barely moved for a while, send it off in a fresh direction
     b.stT = (b.stT || 0) + dt;
     if (b.stT > 1.5) {
@@ -1369,14 +1595,18 @@ function updateShooter(dt) {
     b.yaw = b.los ? Math.atan2(dy, dx) : (hx || hy) ? Math.atan2(hy, hx) : b.yaw;
     if (b.los && !S.dead) {
       b.cool -= dt;
-      if (b.cool <= 0) {
-        b.cool = 0.75 + Math.random() * 0.9;
-        const p = clamp(0.72 - dist / 150, 0.1, 0.68) * (pspeed > 9 ? 0.55 : 1) * Math.min(1.25, 0.8 + S.wave * 0.05);
+      if (b.cool <= 0) { b.cool = 1.3 + Math.random() * 1.3; b.burst = 3; b.bt = 0; }
+    }
+    if (b.burst > 0 && !S.dead) {                   // three-round bursts
+      b.bt -= dt;
+      if (b.bt <= 0) {
+        b.bt = 0.1; b.burst--;
+        const p = clamp(0.5 - dist / 210, 0.05, 0.45) * (pspeed > 9 ? 0.55 : 1) * Math.min(1.25, 0.8 + S.wave * 0.05) * (b.los ? 1 : 0);
         const hit = Math.random() < p, gx = b.x + dx / dist * 0.7, gy = b.y + dy / dist * 0.7;
         if (hit) tracer(gx, gy, 1.3, player.x, player.y, player.alt - 0.35, 1, 0.3, 0.2);
         else { const o = (Math.random() < 0.5 ? -1 : 1) * (0.7 + Math.random() * 1.5); tracer(gx, gy, 1.3, player.x - dy / dist * o + dx / dist * 12, player.y + dx / dist * o + dy / dist * 12, player.alt - 0.3 + Math.random(), 1, 0.3, 0.2); }
         sfxShot(clamp(0.24 * (1 - dist / 170), 0.03, 0.24), 0.72);
-        if (hit) hurtPlayer(Math.min(14, 8 + S.wave * 0.5));
+        if (hit) hurtPlayer(Math.min(8, 4.5 + S.wave * 0.3), b.x, b.y);
       }
     }
   }
@@ -1397,11 +1627,15 @@ function updateShooter(dt) {
     _bp.set(b.x, b.dead > 0 ? -Math.max(0, b.dead - 0.9) * 2.6 : 0, -b.y); _bq.setFromAxisAngle(AX_Y, b.yaw);
     if (b.dead > 0) { _bf.setFromAxisAngle(AX_Z, Math.min(1, b.dead / 0.3) * 1.5); _bq.multiply(_bf); }
     botMesh.setMatrixAt(n, _bm.compose(_bp, _bq, _b1));
+    const sw = b.dead > 0 ? 0 : Math.sin(b.walk || 0) * 0.6;
+    legL.setMatrixAt(n, _lm.makeRotationZ(sw).setPosition(0, 0.86, 0.15).premultiply(_bm));
+    legR.setMatrixAt(n, _lm.makeRotationZ(-sw).setPosition(0, 0.86, -0.15).premultiply(_bm));
     const f = 1 + b.flash * 2.2; botMesh.setColorAt(n, _bc.setRGB(f, f, f)); n++;
   }
+  legL.count = legR.count = n; legL.instanceMatrix.needsUpdate = legR.instanceMatrix.needsUpdate = true;
   botMesh.count = n; botMesh.instanceMatrix.needsUpdate = true; botMesh.instanceColor.needsUpdate = true;
   const rl = S.reload > 0 ? Math.sin((1 - S.reload / 1.4) * Math.PI) : 0, bob = Math.sin(S.t * 9) * Math.min(1, pspeed / 7) * 0.006;
-  gun.position.set(0.17, -0.15 - rl * 0.14 + bob, -0.42 + S.recoil * 0.03); gun.rotation.set(S.recoil * 0.05 - rl * 0.9, 0, rl * 0.3);
+  gun.position.set(0.17 * (1 - S.ads), -0.15 + 0.052 * S.ads - rl * 0.14 + bob * (1 - S.ads), -0.42 + 0.06 * S.ads + S.recoil * 0.03); gun.rotation.set(S.recoil * 0.05 - rl * 0.9, 0, rl * 0.3);
   flash.visible = S.recoil > 0.55; if (flash.visible) flash.rotation.z = S.t * 37;
   $('vignette').style.opacity = S.dead ? 0.85 : Math.max(S.vig * 0.8, S.hp < 35 ? 0.35 : 0);
   const hud = `${Math.ceil(S.hp)}|${S.reload > 0 ? 'Reloading…' : S.ammo + ' / ' + MAG}|Wave ${Math.max(1, S.wave)} · ${alive} bot${alive === 1 ? '' : 's'} left · Score ${S.score}`;
@@ -1419,6 +1653,14 @@ function updateTracers(dt) {
   }
   tracerMesh.geometry.attributes.position.needsUpdate = true; tracerMesh.geometry.attributes.color.needsUpdate = true;
 }
+let bobT = 0;
+function walkBob(dt) {
+  if (player.mode !== 'walk' || !player.onGround) return;
+  const sp = Math.hypot(player.vx, player.vz); if (sp < 0.6) return;
+  const prev = bobT; bobT += sp * dt * 1.15;
+  camera.position.y += Math.sin(bobT * 2) * 0.03 * Math.min(1, sp / 6);
+  if (Math.floor(bobT / Math.PI) !== Math.floor(prev / Math.PI)) sfxShot(0.03, 0.22);      // footstep
+}
 function reloadGun() { const S = shooter; if (S.on && !S.dead && S.reload <= 0 && S.ammo < MAG) { S.reload = 1.4; sfxTone(240, 0.08, 0.08, 'square', 180); } }
 function toggleShooter() { if (shooter.on && !shooter.dead) stopShooter(); else startShooter(false); }
 
@@ -1428,6 +1670,7 @@ function init() {
   buildBuildings();
   buildTrees();
   buildEl();
+  buildStreetLife();
   buildProps();
   buildLabels();
   initShooter();
@@ -1449,15 +1692,17 @@ function frame(now) {
     camera.position.set(Math.sin(a) * 2300 + 200, 640, Math.cos(a) * 2300 - 300);
     camera.lookAt(200, 120, -300);
   } else if (!mapOpen && $('start').classList.contains('hidden')) {
-    if (!shooter.dead) updatePlayer(dt);
+    if (!shooter.dead) { updatePlayer(dt); walkBob(dt); }
     checkDiscoveries();
     updateShooter(dt);
   }
   sky.position.copy(camera.position);
   updateTracers(dt);
   updateTrains(time);
+  updateCars(dt);
   if (wheel) wheel.rotation.z = time * 0.12;
   if (jet) { const s = 26 + Math.sin(time * 2.3) * 3 + Math.sin(time * 7.1); jet.scale.set(1, s, 1); jet.material.opacity = 0.55 * (1 - 0.6 * tod.night); }
+  renderShadow();
   renderer.render(scene, camera);
   if (started) {
     camera.updateMatrixWorld();
@@ -1469,7 +1714,7 @@ function frame(now) {
   }
   tick++;
   // drop resolution if the machine is struggling
-  if (dt > 0.045) { if (++slow === 90 && renderer.getPixelRatio() > 1) { renderer.setPixelRatio(1); renderer.setSize(window.innerWidth, window.innerHeight, false); } } else if (slow > 0) slow--;
+  if (dt > 0.045) { slow++; if (slow === 90 && renderer.getPixelRatio() > 1) { renderer.setPixelRatio(1); renderer.setSize(window.innerWidth, window.innerHeight, false); } if (slow === 260) U.uShadowOn.value = 0; } else if (slow > 0) slow--;
 }
 
 // let the start card paint before the heavy build

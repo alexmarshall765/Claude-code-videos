@@ -86,6 +86,12 @@
   #fpsMsg span { display: block; font-size: 15px; margin-top: 6px; color: #e6ebf1; line-height: 1.45; }
   #vignette { position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse at center, rgba(255,40,30,0) 45%, rgba(220,20,10,.75) 100%); }
   #cross.hit::before, #cross.hit::after { background: #ff4d3d; }
+  #dmgDir { position: absolute; left: 50%; top: 50%; width: 300px; height: 300px; margin: -150px 0 0 -150px; opacity: 0; }
+  #dmgDir::before { content: ""; position: absolute; left: 50%; top: 0; margin-left: -46px; border-left: 46px solid transparent; border-right: 46px solid transparent;
+    border-top: 26px solid rgba(255, 60, 45, .9); filter: drop-shadow(0 0 6px rgba(255,0,0,.6)); }
+  #tbtns [data-k=aim] { display: none; }
+  body.shooter #tbtns [data-k=aim] { display: block; }
+  body.shooter #tbtns [data-k=time], body.shooter #tbtns [data-k=mode], body.shooter #tbtns [data-k=map] { display: none; }
   #tbtns [data-k=fire], #tbtns [data-k=reload] { display: none; }
   body.shooter #tbtns [data-k=fire], body.shooter #tbtns [data-k=reload] { display: block; }
   body.shooter #tbtns [data-k=fire] { background: rgba(230, 60, 45, .7); }
@@ -174,6 +180,7 @@
     <div class="sub" id="fpsInfo">Wave 1</div>
   </div>
   <div id="fpsMsg"></div>
+  <div id="dmgDir"></div>
   <div id="cross"></div>
   <div id="target" class="panel"></div>
   <div id="toast" class="panel"><div class="k">Landmark discovered</div><div class="h"></div><div class="f"></div></div>
@@ -189,7 +196,7 @@
   <div id="tbtns">
     <button data-k="up">▲</button><button data-k="mode">Walk</button><button data-k="map">Map</button>
     <button data-k="down">▼</button><button data-k="boost">Fast</button><button data-k="time">☀︎</button>
-    <button data-k="fire">Fire</button><button data-k="reload">Reload</button><button data-k="fps">Shoot</button>
+    <button data-k="fire">Fire</button><button data-k="aim">Aim</button><button data-k="reload">Reload</button><button data-k="fps">Shoot</button>
   </div>
 </div>
 
@@ -215,7 +222,7 @@
       <div><kbd>Shift</kbd></div><div>Boost (sprint on foot) · mouse wheel changes flying speed</div>
       <div><kbd>F</kbd></div><div>Switch between flying and walking (drop in anywhere, even onto rooftops)</div>
       <div><kbd>M</kbd></div><div>Full map and fast travel</div>
-      <div><kbd>G</kbd></div><div>Shooter mode — fight waves of bots on the streets (click to fire, <kbd>R</kbd> reloads)</div>
+      <div><kbd>G</kbd></div><div>Shooter mode — fight waves of bots on the streets (click to fire, right-click to aim, <kbd>R</kbd> reloads)</div>
       <div><kbd>T</kbd> · <kbd>L</kbd> · <kbd>H</kbd></div><div>Time of day · building labels · this help</div>
     </div>
     <button id="go" disabled><span id="loading">Building the city…</span></button><button id="goFps" disabled>Play shooter mode</button>

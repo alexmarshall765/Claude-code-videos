@@ -115,6 +115,33 @@ for r in blds:
         c=g.centroid; labels.append([ni,q(c.x),q(c.y),q(top)])
 print(stats, len(B), "labels",len(labels))
 
+# Towers are often mapped as a part standing inside its podium, both starting at the ground. Their walls then
+# coincide and flicker, so lift each tower to the roof of the podium that contains it and drop fully hidden shapes.
+from shapely import STRtree
+def _poly(b):
+    pts=[]; x=y=0; a=b[7]
+    for i in range(0,len(a),2):
+        x+=a[i]; y+=a[i+1]; pts.append((x*.1,y*.1))
+    pg=Polygon(pts)
+    return pg if pg.is_valid else pg.buffer(0)
+PG=[_poly(b) for b in B]; tree=STRtree(PG); drop=set(); lift={}
+for i,pg in enumerate(PG):
+    if pg.is_empty: continue
+    for j in tree.query(pg):
+        if j==i or PG[j].is_empty: continue
+        a,bb=B[i],B[j]                      # a = candidate container (lower), bb = inner (taller)
+        if not (a[0]<bb[0] or (a[0]==bb[0] and i<j)): continue
+        if a[1]>bb[1]+5 or a[0]<=bb[1]: continue
+        inter=pg.intersection(PG[j]).area
+        if inter<20: continue
+        if inter>0.8*PG[j].area and a[0]<bb[0]: lift[j]=max(lift.get(j,bb[1]),a[0])      # tower inside podium
+        elif inter>0.9*pg.area: drop.add(i)                                              # hidden inside a taller shape
+for j,m in lift.items():
+    if B[j][0]-m>20: B[j][1]=m
+    else: drop.add(j) if B[j][0]<=m else None
+B=[b for i,b in enumerate(B) if i not in drop]
+print("lifted",len(lift),"dropped",len(drop),"buildings",len(B))
+
 # roads
 RC={"motorway":0,"trunk":0,"primary":1,"secondary":1,"tertiary":2,"residential":3,"unclassified":3,"living_street":3,
     "service":4,"track":4,"pedestrian":5,"footway":5,"path":5,"cycleway":5}
