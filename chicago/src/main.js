@@ -830,11 +830,16 @@ function setMode(m) {
   refreshKeys();
 }
 function refreshKeys() {
+  if (shooter.on) {
+    $('modeLine').innerHTML = 'Mode: <i>Shooter</i>';
+    $('keyLines').innerHTML = '<kbd>Click</kbd> fire · <kbd>R</kbd> reload · <kbd>WASD</kbd> move · <kbd>Shift</kbd> sprint<br><kbd>Space</kbd> jump · <kbd>G</kbd> quit shooter · <kbd>T</kbd> time · <kbd>H</kbd> help';
+    return;
+  }
   const fly = player.mode === 'fly';
   $('modeLine').innerHTML = `Mode: <i>${fly ? 'Flying' : 'On foot'}</i>`;
   $('keyLines').innerHTML = fly
-    ? '<kbd>WASD</kbd> fly · <kbd>Space</kbd>/<kbd>Q</kbd> up/down · <kbd>Shift</kbd> boost<br><kbd>F</kbd> drop in & walk · <kbd>M</kbd> map · <kbd>T</kbd> time · <kbd>H</kbd> help'
-    : '<kbd>WASD</kbd> walk · <kbd>Space</kbd> jump · <kbd>Shift</kbd> sprint<br><kbd>F</kbd> take off · <kbd>M</kbd> map · <kbd>T</kbd> time · <kbd>H</kbd> help';
+    ? '<kbd>WASD</kbd> fly · <kbd>Space</kbd>/<kbd>Q</kbd> up/down · <kbd>Shift</kbd> boost<br><kbd>F</kbd> drop in & walk · <kbd>G</kbd> shooter · <kbd>M</kbd> map · <kbd>T</kbd> time'
+    : '<kbd>WASD</kbd> walk · <kbd>Space</kbd> jump · <kbd>Shift</kbd> sprint<br><kbd>F</kbd> take off · <kbd>G</kbd> shooter · <kbd>M</kbd> map · <kbd>T</kbd> time';
   const tb = document.querySelector('#tbtns [data-k=mode]'); if (tb) tb.textContent = fly ? 'Walk' : 'Fly';
 }
 
@@ -964,6 +969,7 @@ function drawMini() {
     nctx.beginPath(); nctx.arc(mx(l.x), my(l.y), 7, 0, 6.3); nctx.fill(); nctx.stroke();
     if (!l.found) { const d = Math.hypot(l.x - player.x, l.y - player.y); if (d < nd) { nd = d; near = l; } }
   }
+  if (shooter.on) { nctx.fillStyle = '#ff4d3d'; for (const b of shooter.bots) if (!(b.dead > 0)) { nctx.beginPath(); nctx.arc(mx(b.x), my(b.y), 6, 0, 6.3); nctx.fill(); } }
   nctx.setTransform(1, 0, 0, 1, 0, 0);
   // pointer to the nearest undiscovered landmark when it is off the minimap
   if (near && nd * MAP_S * zoom > c - 14) {
@@ -1041,7 +1047,7 @@ bigCv.addEventListener('click', (e) => {
   toggleMap(false);
 });
 $('closemap').onclick = () => toggleMap(false);
-$('mini').addEventListener('click', () => toggleMap(true));
+$('mini').addEventListener('click', () => { if (!shooter.on) toggleMap(true); });
 
 // ───────────────────────────── input ─────────────────────────────
 const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
@@ -1057,27 +1063,30 @@ window.addEventListener('keydown', (e) => {
   keys[e.code] = true;
   if (!started) { if (e.code === 'Enter' && !$('go').disabled) begin(); return; }
   switch (e.code) {
-    case 'KeyF': setMode(player.mode === 'fly' ? 'walk' : 'fly'); break;
-    case 'KeyM': toggleMap(); break;
+    case 'KeyF': if (!shooter.on) setMode(player.mode === 'fly' ? 'walk' : 'fly'); break;
+    case 'KeyM': if (!shooter.on || mapOpen) toggleMap(); break;
+    case 'KeyG': if ($('start').classList.contains('hidden') && !mapOpen) toggleShooter(); break;
+    case 'KeyR': reloadGun(); break;
     case 'KeyT': cycleTime(); break;
     case 'KeyL': labelsOn = !labelsOn; break;
     case 'KeyH': showHelp($('start').classList.contains('hidden')); break;
     case 'Escape': if (mapOpen) toggleMap(false); break;
-    case 'Enter': if (!$('start').classList.contains('hidden')) begin(); break;
+    case 'Enter': if (!$('start').classList.contains('hidden')) begin(); else if (shooter.on && shooter.dead) startShooter(false); break;
   }
   if (e.code === 'Space' || e.code.startsWith('Arrow') || e.code === 'Tab') e.preventDefault();
 });
 window.addEventListener('keyup', (e) => { keys[e.code] = false; });
-window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; shooter.firing = false; });
 
 let dragging = false;
 const look = (dx, dy, k) => { player.yaw -= dx * k; player.pitch = clamp(player.pitch - dy * k, -1.5, 1.5); };
-canvas.addEventListener('mousedown', () => {
+canvas.addEventListener('mousedown', (e) => {
   if (!started || mapOpen) return;
   dragging = true;
+  if (shooter.on && e.button === 0) { audioInit(); if (shooter.dead) { if (shooter.t - shooter.deadT > 1.2) startShooter(false); } else shooter.firing = true; }
   if (!isTouch && !document.pointerLockElement && canvas.requestPointerLock) { try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* drag-look fallback */ } }
 });
-window.addEventListener('mouseup', () => { dragging = false; });
+window.addEventListener('mouseup', () => { dragging = false; shooter.firing = false; });
 window.addEventListener('mousemove', (e) => {
   if (!started || mapOpen) return;
   if (document.pointerLockElement === canvas) look(e.movementX, e.movementY, 0.0022);
@@ -1111,8 +1120,8 @@ const touchEnd = (e) => { for (const t of e.changedTouches) { if (t.identifier =
 window.addEventListener('touchend', touchEnd); window.addEventListener('touchcancel', touchEnd);
 for (const b of document.querySelectorAll('#tbtns button')) {
   const k = b.dataset.k;
-  const down = (e) => { e.preventDefault(); if (k === 'up' || k === 'down') touch[k] = true; else if (k === 'boost') { touch.boost = !touch.boost; b.style.background = touch.boost ? 'rgba(255,201,77,.6)' : ''; } else if (k === 'mode') setMode(player.mode === 'fly' ? 'walk' : 'fly'); else if (k === 'map') toggleMap(); else if (k === 'time') cycleTime(); };
-  const upf = (e) => { e.preventDefault(); if (k === 'up' || k === 'down') touch[k] = false; };
+  const down = (e) => { e.preventDefault(); if (k === 'up' || k === 'down') touch[k] = true; else if (k === 'boost') { touch.boost = !touch.boost; b.style.background = touch.boost ? 'rgba(255,201,77,.6)' : ''; } else if (k === 'mode') { if (!shooter.on) setMode(player.mode === 'fly' ? 'walk' : 'fly'); } else if (k === 'fire') { audioInit(); shooter.firing = true; } else if (k === 'reload') reloadGun(); else if (k === 'fps') { if (shooter.on && shooter.dead) startShooter(false); else toggleShooter(); } else if (k === 'map') { if (!shooter.on) toggleMap(); } else if (k === 'time') cycleTime(); };
+  const upf = (e) => { e.preventDefault(); if (k === 'up' || k === 'down') touch[k] = false; if (k === 'fire') shooter.firing = false; };
   b.addEventListener('touchstart', down, { passive: false }); b.addEventListener('touchend', upf, { passive: false });
   b.addEventListener('mousedown', down); b.addEventListener('mouseup', upf);
 }
@@ -1128,12 +1137,290 @@ function begin() {
     const [sx, sy] = ll(41.8690, -87.6130);
     placeAt(sx, sy, 230, ...ll(41.8820, -87.6310), 120);
     $('hud').classList.remove('hidden'); refreshKeys();
-    setTimeout(() => toast('Welcome to Chicago', 'Find the golden beacons', 'Each beam of light marks a landmark. Fly close to discover it — the arrow on the minimap points to the nearest one.', 8000), 600);
+    setTimeout(() => !shooter.on && toast('Welcome to Chicago', 'Find the golden beacons', 'Each beam of light marks a landmark. Fly close to discover it — the arrow on the minimap points to the nearest one.', 8000), 600);
   }
   showHelp(false);
   if (!isTouch && canvas.requestPointerLock) { try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* ignore */ } }
 }
 $('go').addEventListener('click', begin);
+$('goFps').addEventListener('click', () => { const fresh = !started; begin(); startShooter(fresh); });
+
+// ───────────────────────────── shooter mode ─────────────────────────────
+// A simple wave-based first-person shooter against bots, played on the streets of the map.
+const MAX_BOTS = 28, MAG = 30;
+const shooter = { on: false, dead: false, deadT: 0, firing: false, hp: 100, ammo: MAG, reload: 0, cool: 0, wave: 0, score: 0, kills: 0,
+  waveT: 0, pending: false, lastHurt: -99, recoil: 0, vig: 0, t: 0, bots: [], best: 0, savedLabels: true, msgT: 0 };
+try { shooter.best = +localStorage.getItem('chicago3d.best.v1') || 0; } catch (e) { /* ignore */ }
+
+const botMat = shader(/* glsl */`
+  attribute vec3 aCol; varying vec3 vCol; varying vec3 vN; varying vec3 vW;
+  void main(){
+    vec4 p = instanceMatrix * vec4(position, 1.0); vN = normalize(mat3(instanceMatrix) * normal);
+    vCol = aCol * instanceColor; vW = p.xyz; gl_Position = projectionMatrix * viewMatrix * p;
+  }
+`, /* glsl */`
+  varying vec3 vCol; varying vec3 vN; varying vec3 vW;
+  void main(){ vec3 c = vCol * (lightOf(normalize(vN)) + 0.32); gl_FragColor = vec4(fogged(c, vW), 1.0); }
+`);
+let botMesh, gun, flash, tracerMesh;
+const TR_N = 24, trPos = new Float32Array(TR_N * 6), trCol = new Float32Array(TR_N * 6), trLife = new Float32Array(TR_N), trBase = new Float32Array(TR_N * 3);
+let trNext = 0;
+function tracer(ax, ay, az, bx, by, bz, r, g, b) {
+  const i = trNext++ % TR_N;
+  trPos.set([ax, az, -ay, bx, bz, -by], i * 6); trBase.set([r, g, b], i * 3); trLife[i] = 1;
+}
+function initShooter() {
+  // bot model: local +x is forward, feet at y = 0
+  const lb = new LitBuilder(), red = [0.82, 0.2, 0.14], dark = [0.16, 0.17, 0.2], pale = [0.78, 0.8, 0.84];
+  lb.box(0, 0.43, 0.15, 0.24, 0.86, 0.22, 0, dark); lb.box(0, 0.43, -0.15, 0.24, 0.86, 0.22, 0, dark);
+  lb.box(0, 1.2, 0, 0.34, 0.68, 0.6, 0, red);
+  lb.box(0, 1.2, 0.37, 0.2, 0.6, 0.14, 0, dark); lb.box(0.14, 1.28, -0.37, 0.48, 0.16, 0.14, 0, dark);
+  lb.box(0, 1.71, 0, 0.3, 0.3, 0.3, 0, pale); lb.box(0.14, 1.73, 0, 0.06, 0.09, 0.26, 0, [1.0, 0.85, 0.2]);
+  lb.box(0.5, 1.28, -0.37, 0.5, 0.09, 0.09, 0, [0.08, 0.08, 0.09]);
+  botMesh = new THREE.InstancedMesh(lb.geometry(), botMat, MAX_BOTS);
+  const one = new THREE.Color(1, 1, 1); for (let i = 0; i < MAX_BOTS; i++) botMesh.setColorAt(i, one);
+  botMesh.count = 0; botMesh.frustumCulled = false; scene.add(botMesh);
+
+  // first-person gun, attached to the camera
+  scene.add(camera);
+  const gb = new LitBuilder(), gd = [0.13, 0.14, 0.16], gm = [0.32, 0.33, 0.36];
+  gb.box(0, 0, -0.05, 0.055, 0.08, 0.34, 0, gd); gb.box(0, 0.012, -0.28, 0.03, 0.03, 0.14, 0, gm);
+  gb.box(0, -0.09, 0.07, 0.045, 0.13, 0.06, 0, gd); gb.box(0, -0.085, -0.08, 0.04, 0.11, 0.07, 0, gm); gb.box(0, 0.055, -0.02, 0.02, 0.03, 0.1, 0, gm);
+  gun = new THREE.Mesh(gb.geometry(), litMat); gun.frustumCulled = false; gun.visible = false; gun.scale.setScalar(0.62); camera.add(gun);
+  flash = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.2), new THREE.MeshBasicMaterial({ color: 0xffc860, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+  flash.position.set(0, 0.012, -0.37); flash.visible = false; gun.add(flash);
+
+  const tg = new THREE.BufferGeometry();
+  tg.setAttribute('position', new THREE.BufferAttribute(trPos, 3)); tg.setAttribute('color', new THREE.BufferAttribute(trCol, 3));
+  tracerMesh = new THREE.LineSegments(tg, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+  tracerMesh.frustumCulled = false; scene.add(tracerMesh);
+}
+
+// tiny synthesised sound effects (no files needed)
+let actx = null, noiseBuf = null;
+function audioInit() {
+  if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
+  try {
+    actx = new (window.AudioContext || window.webkitAudioContext)();
+    noiseBuf = actx.createBuffer(1, Math.floor(actx.sampleRate * 0.3), actx.sampleRate);
+    const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  } catch (e) { actx = null; }
+}
+function sfxShot(vol, rate) {
+  if (!actx) return; const t = actx.currentTime, s = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
+  s.buffer = noiseBuf; s.playbackRate.value = rate; f.type = 'lowpass'; f.frequency.setValueAtTime(4200, t); f.frequency.exponentialRampToValueAtTime(260, t + 0.13);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.17);
+  s.connect(f); f.connect(g); g.connect(actx.destination); s.start(t); s.stop(t + 0.2);
+}
+function sfxTone(freq, dur, vol, type = 'square', to = freq) {
+  if (!actx) return; const t = actx.currentTime, o = actx.createOscillator(), g = actx.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, t); o.frequency.exponentialRampToValueAtTime(to, t + dur);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t + dur + 0.02);
+}
+
+// distance along a ray until it hits a building or the ground (map coords + height)
+function rayWall(ox, oy, oz, dx, dy, dz, max) {
+  for (let t = 0.5; t < max; t += t < 80 ? 0.5 : 2) {
+    const h = oz + dz * t; if (h < 0) return t;
+    if (blockedAt(ox + dx * t, oy + dy * t, h - 0.6, h)) return t;
+  }
+  return max;
+}
+function seesPlayer(x, y) {
+  const dx = player.x - x, dy = player.y - y, dz = player.alt - 0.2 - 1.6, d = Math.hypot(dx, dy, dz) || 1;
+  return rayWall(x, y, 1.6, dx / d, dy / d, dz / d, d) >= d - 0.6;
+}
+const clearSpot = (x, y) => !blockedAt(x, y, 0, 2) && !blockedAt(x + 1.1, y, 0, 2) && !blockedAt(x - 1.1, y, 0, 2) && !blockedAt(x, y + 1.1, 0, 2) && !blockedAt(x, y - 1.1, 0, 2);
+function findStreet(x, y) {
+  for (let r = 0; r < 200; r += 5) for (let k = 0; k < 12; k++) {
+    const a = k / 12 * 6.283, px = x + Math.sin(a) * r, py = y + Math.cos(a) * r;
+    if (clearSpot(px, py)) return [px, py];
+  }
+  return [x, y];
+}
+function spawnSpot() {
+  for (let k = 0; k < 80; k++) {
+    const a = Math.random() * 6.283, d = 45 + Math.random() * 95, x = player.x + Math.sin(a) * d, y = player.y + Math.cos(a) * d;
+    if (!clearSpot(x, y)) continue;
+    if (k < 45 && seesPlayer(x, y)) continue;       // prefer spawning out of sight
+    return [x, y];
+  }
+  return null;
+}
+function fpsMsg(big, small, secs) {
+  const el = $('fpsMsg'); el.innerHTML = '';
+  if (big) { const b = document.createElement('b'); b.textContent = big; el.append(b); }
+  if (small) { const s = document.createElement('span'); s.textContent = small; el.append(s); }
+  shooter.msgT = secs || 0; el.classList.toggle('on', !!big);
+}
+function startWave() {
+  const S = shooter; S.wave++;
+  const n = Math.min(MAX_BOTS, 2 + S.wave * 2);
+  for (let i = 0; i < n; i++) {
+    const p = spawnSpot(); if (!p) continue;
+    S.bots.push({ x: p[0], y: p[1], yaw: 0, hp: 100, dead: 0, flash: 0, los: false, losT: Math.random() * 0.3, cool: 1 + Math.random(),
+      detT: 0, dhx: 0, dhy: 0, strT: 0, str: 1, side: Math.random() < 0.5 ? -1 : 1, speed: Math.min(5.6, 3.5 + S.wave * 0.18) * (0.9 + Math.random() * 0.2) });
+  }
+  fpsMsg('Wave ' + S.wave, n + ' bots incoming', 2.5);
+  sfxTone(440, 0.25, 0.12, 'triangle', 660);
+}
+function startShooter(atDefault) {
+  const S = shooter; audioInit();
+  if (atDefault) { const [x, y] = ll(41.8822, -87.6246); player.x = x; player.y = y; player.yaw = 0; }
+  const [sx, sy] = findStreet(player.x, player.y);
+  player.x = sx; player.y = sy; player.alt = EYE; player.vx = player.vy = player.vz = 0; player.pitch = 0; player.mode = 'walk'; player.onGround = true;
+  if (!S.on) { S.savedLabels = labelsOn; labelsOn = false; }
+  Object.assign(S, { on: true, dead: false, firing: false, hp: 100, ammo: MAG, reload: 0, cool: 0, wave: 0, score: 0, kills: 0, waveT: 2.5, pending: true, lastHurt: -99, vig: 0 });
+  S.bots.length = 0; gun.visible = true; document.body.classList.add('shooter');
+  fpsMsg('Shooter mode', isTouch ? 'Hold Fire to shoot. Bots are on their way.' : 'Click to fire · R to reload · G to quit', 2.4);
+  refreshKeys();
+}
+function stopShooter() {
+  const S = shooter; S.on = false; S.dead = false; S.firing = false; S.bots.length = 0; botMesh.count = 0; gun.visible = false;
+  document.body.classList.remove('shooter'); labelsOn = S.savedLabels; fpsMsg('', '', 0); $('vignette').style.opacity = 0; refreshKeys();
+}
+function hurtPlayer(d) {
+  const S = shooter; if (S.dead) return;
+  S.hp -= d; S.lastHurt = S.t; S.vig = 1; sfxTone(150, 0.14, 0.22, 'sawtooth', 70);
+  if (S.hp <= 0) {
+    S.hp = 0; S.dead = true; S.deadT = S.t; S.firing = false;
+    if (S.score > S.best) { S.best = S.score; try { localStorage.setItem('chicago3d.best.v1', String(S.best)); } catch (e) { /* ignore */ } }
+    fpsMsg('You were taken down', `Wave ${S.wave} · ${S.kills} bot${S.kills === 1 ? '' : 's'} down · Score ${S.score} · Best ${S.best} — ${isTouch ? 'tap Shoot to play again' : 'press Enter to play again, G to quit'}`, 0);
+    sfxTone(300, 0.6, 0.2, 'sawtooth', 60);
+  }
+}
+function playerFire() {
+  const S = shooter; S.ammo--; S.cool = 0.105; S.recoil = 1;
+  const spread = 0.005 + Math.min(0.03, Math.hypot(player.vx, player.vz) * 0.0016) + (player.onGround ? 0 : 0.02);
+  const yaw = player.yaw + (Math.random() - 0.5) * spread * 2, pitch = player.pitch + (Math.random() - 0.5) * spread * 2;
+  const dx = -Math.sin(yaw) * Math.cos(pitch), dy = Math.cos(yaw) * Math.cos(pitch), dz = Math.sin(pitch);
+  const ox = player.x, oy = player.y, oz = player.alt;
+  let tHit = rayWall(ox, oy, oz, dx, dy, dz, 400), target = null, head = false;
+  const h2 = dx * dx + dy * dy;
+  if (h2 > 1e-6) for (const b of S.bots) {
+    if (b.dead > 0) continue;
+    const t = ((b.x - ox) * dx + (b.y - oy) * dy) / h2; if (t <= 0 || t >= tHit) continue;
+    if (Math.hypot(ox + dx * t - b.x, oy + dy * t - b.y) > 0.52) continue;
+    const hh = oz + dz * t; if (hh < -0.1 || hh > 1.95) continue;
+    tHit = t; target = b; head = hh > 1.5;
+  }
+  const cy = Math.cos(player.yaw), sy = Math.sin(player.yaw);
+  tracer(ox + dx * 0.9 + cy * 0.2, oy + dy * 0.9 + sy * 0.2, oz + dz * 0.9 - 0.17, ox + dx * tHit, oy + dy * tHit, oz + dz * tHit, 1, 0.85, 0.45);
+  sfxShot(0.3, 1);
+  if (target) {
+    target.hp -= head ? 100 : 34; target.flash = 1;
+    $('cross').classList.add('hit'); clearTimeout(playerFire._h); playerFire._h = setTimeout(() => $('cross').classList.remove('hit'), 110);
+    if (target.hp <= 0) { target.dead = 0.001; S.kills++; S.score += head ? 150 : 100; sfxTone(620, 0.12, 0.12, 'square', 930); }
+    else sfxTone(1100, 0.04, 0.07);
+  }
+  player.pitch = Math.min(1.5, player.pitch + 0.011); player.yaw += (Math.random() - 0.5) * 0.006;
+}
+const _bm = new THREE.Matrix4(), _bq = new THREE.Quaternion(), _bf = new THREE.Quaternion(), _bp = new THREE.Vector3(), _b1 = new THREE.Vector3(1, 1, 1);
+const _bc = new THREE.Color(), AX_Y = new THREE.Vector3(0, 1, 0), AX_Z = new THREE.Vector3(0, 0, 1);
+let hudCache = '';
+function updateShooter(dt) {
+  const S = shooter; if (!S.on) return;
+  S.t += dt;
+  if (!S.dead) {
+    S.cool -= dt;
+    if (S.reload > 0) { S.reload -= dt; if (S.reload <= 0) S.ammo = MAG; }
+    else if (S.firing && S.cool <= 0) { if (S.ammo > 0) playerFire(); else reloadGun(); }
+    if (S.t - S.lastHurt > 5 && S.hp < 100) S.hp = Math.min(100, S.hp + dt * 6);
+  }
+  S.recoil = Math.max(0, S.recoil - dt * 9); S.vig = Math.max(0, S.vig - dt * 1.6);
+
+  // bots
+  let alive = 0;
+  const pspeed = Math.hypot(player.vx, player.vz);
+  for (const b of S.bots) {
+    if (b.dead > 0) { b.dead += dt; continue; }
+    alive++; b.flash = Math.max(0, b.flash - dt * 6);
+    let dx = player.x - b.x, dy = player.y - b.y, dist = Math.hypot(dx, dy) || 1;
+    if (dist > 260) { const p = spawnSpot(); if (p) { b.x = p[0]; b.y = p[1]; b.los = false; } continue; }
+    b.losT -= dt;
+    if (b.losT <= 0) {
+      b.losT = 0.2 + Math.random() * 0.15; const had = b.los;
+      b.los = !S.dead && dist < 140 && seesPlayer(b.x, b.y);
+      if (b.los && !had) b.cool = Math.max(b.cool, 0.45 + Math.random() * 0.6);
+    }
+    let hx = 0, hy = 0;
+    if (b.detT > 0) { b.detT -= dt; hx = b.dhx; hy = b.dhy; }
+    else if (!b.los || dist > 38) { hx = dx / dist; hy = dy / dist; }
+    else if (dist < 11) { hx = -dx / dist; hy = -dy / dist; }
+    else {
+      b.strT -= dt; if (b.strT <= 0) { b.strT = 1 + Math.random() * 2; b.str = Math.random() < 0.25 ? 0 : Math.random() < 0.5 ? -1 : 1; }
+      hx = -dy / dist * b.str; hy = dx / dist * b.str;
+    }
+    if (hx || hy) {
+      const sp = b.speed * dt, free = (ux, uy) => !blockedAt(b.x + ux * sp, b.y + uy * sp, 0, 1.9) && !blockedAt(b.x + ux * 0.8, b.y + uy * 0.8, 0, 1.9);
+      if (free(hx, hy)) { b.x += hx * sp; b.y += hy * sp; }
+      else for (const a of [0.9, -0.9, 1.7, -1.7, 2.6, -2.6]) {      // slide around the obstacle
+        const an = a * b.side, c = Math.cos(an), s = Math.sin(an), ux = hx * c - hy * s, uy = hx * s + hy * c;
+        if (free(ux, uy)) { b.x += ux * sp; b.y += uy * sp; b.dhx = ux; b.dhy = uy; b.detT = 0.6 + Math.random() * 0.7; hx = ux; hy = uy; break; }
+      }
+    }
+    // unstick: if a bot has barely moved for a while, send it off in a fresh direction
+    b.stT = (b.stT || 0) + dt;
+    if (b.stT > 1.5) {
+      if ((!b.los || dist > 38) && Math.hypot(b.x - (b.sx || 0), b.y - (b.sy || 0)) < 1.2) { const a = Math.random() * 6.283; b.dhx = Math.cos(a); b.dhy = Math.sin(a); b.detT = 1.2; b.side = -b.side; }
+      b.stT = 0; b.sx = b.x; b.sy = b.y;
+    }
+    b.yaw = b.los ? Math.atan2(dy, dx) : (hx || hy) ? Math.atan2(hy, hx) : b.yaw;
+    if (b.los && !S.dead) {
+      b.cool -= dt;
+      if (b.cool <= 0) {
+        b.cool = 0.75 + Math.random() * 0.9;
+        const p = clamp(0.72 - dist / 150, 0.1, 0.68) * (pspeed > 9 ? 0.55 : 1) * Math.min(1.25, 0.8 + S.wave * 0.05);
+        const hit = Math.random() < p, gx = b.x + dx / dist * 0.7, gy = b.y + dy / dist * 0.7;
+        if (hit) tracer(gx, gy, 1.3, player.x, player.y, player.alt - 0.35, 1, 0.3, 0.2);
+        else { const o = (Math.random() < 0.5 ? -1 : 1) * (0.7 + Math.random() * 1.5); tracer(gx, gy, 1.3, player.x - dy / dist * o + dx / dist * 12, player.y + dx / dist * o + dy / dist * 12, player.alt - 0.3 + Math.random(), 1, 0.3, 0.2); }
+        sfxShot(clamp(0.24 * (1 - dist / 170), 0.03, 0.24), 0.72);
+        if (hit) hurtPlayer(Math.min(14, 8 + S.wave * 0.5));
+      }
+    }
+  }
+  for (let i = S.bots.length - 1; i >= 0; i--) if (S.bots[i].dead > 1.6) S.bots.splice(i, 1);
+
+  // waves
+  if (alive === 0 && !S.dead) {
+    if (!S.pending) {
+      S.pending = true; S.waveT = 4; S.score += S.wave * 150; S.hp = Math.min(100, S.hp + 35);
+      fpsMsg('Wave ' + S.wave + ' cleared', 'Next wave in a moment…', 2.5);
+    } else { S.waveT -= dt; if (S.waveT <= 0) { S.pending = false; startWave(); } }
+  }
+  if (S.msgT > 0) { S.msgT -= dt; if (S.msgT <= 0) fpsMsg('', '', 0); }
+
+  // draw bots, tracers, gun
+  let n = 0;
+  for (const b of S.bots) {
+    _bp.set(b.x, b.dead > 0 ? -Math.max(0, b.dead - 0.9) * 2.6 : 0, -b.y); _bq.setFromAxisAngle(AX_Y, b.yaw);
+    if (b.dead > 0) { _bf.setFromAxisAngle(AX_Z, Math.min(1, b.dead / 0.3) * 1.5); _bq.multiply(_bf); }
+    botMesh.setMatrixAt(n, _bm.compose(_bp, _bq, _b1));
+    const f = 1 + b.flash * 2.2; botMesh.setColorAt(n, _bc.setRGB(f, f, f)); n++;
+  }
+  botMesh.count = n; botMesh.instanceMatrix.needsUpdate = true; botMesh.instanceColor.needsUpdate = true;
+  const rl = S.reload > 0 ? Math.sin((1 - S.reload / 1.4) * Math.PI) : 0, bob = Math.sin(S.t * 9) * Math.min(1, pspeed / 7) * 0.006;
+  gun.position.set(0.17, -0.15 - rl * 0.14 + bob, -0.42 + S.recoil * 0.03); gun.rotation.set(S.recoil * 0.05 - rl * 0.9, 0, rl * 0.3);
+  flash.visible = S.recoil > 0.55; if (flash.visible) flash.rotation.z = S.t * 37;
+  $('vignette').style.opacity = S.dead ? 0.85 : Math.max(S.vig * 0.8, S.hp < 35 ? 0.35 : 0);
+  const hud = `${Math.ceil(S.hp)}|${S.reload > 0 ? 'Reloading…' : S.ammo + ' / ' + MAG}|Wave ${Math.max(1, S.wave)} · ${alive} bot${alive === 1 ? '' : 's'} left · Score ${S.score}`;
+  if (hud !== hudCache) {
+    hudCache = hud; const p = hud.split('|');
+    $('hpTxt').textContent = '✚ ' + p[0]; $('ammoTxt').textContent = p[1]; $('fpsInfo').textContent = p[2];
+    $('hpFill').style.width = p[0] + '%'; $('hpFill').style.background = S.hp < 35 ? '#ff5a4d' : '#58d6c0';
+  }
+}
+function updateTracers(dt) {
+  if (!tracerMesh) return;
+  for (let i = 0; i < TR_N; i++) {
+    const l = trLife[i] = Math.max(0, trLife[i] - dt * 9);
+    for (let k = 0; k < 2; k++) for (let c = 0; c < 3; c++) trCol[i * 6 + k * 3 + c] = trBase[i * 3 + c] * l;
+  }
+  tracerMesh.geometry.attributes.position.needsUpdate = true; tracerMesh.geometry.attributes.color.needsUpdate = true;
+}
+function reloadGun() { const S = shooter; if (S.on && !S.dead && S.reload <= 0 && S.ammo < MAG) { S.reload = 1.4; sfxTone(240, 0.08, 0.08, 'square', 180); } }
+function toggleShooter() { if (shooter.on && !shooter.dead) stopShooter(); else startShooter(false); }
 
 // ───────────────────────────── boot ─────────────────────────────
 function init() {
@@ -1143,9 +1430,10 @@ function init() {
   buildEl();
   buildProps();
   buildLabels();
+  initShooter();
   renderLmList();
-  $('go').disabled = false; $('loading').textContent = 'Start exploring';
-  if (isTouch) $('helpGrid').innerHTML = '<div>Left stick</div><div>Move</div><div>Drag</div><div>Look around</div><div>▲ ▼</div><div>Fly up / down, or jump on foot</div><div>Walk / Fly</div><div>Drop in anywhere and explore at street level</div><div>Map</div><div>Full map and fast travel</div>';
+  $('go').disabled = false; $('goFps').disabled = false; $('loading').textContent = 'Start exploring';
+  if (isTouch) $('helpGrid').innerHTML = '<div>Left stick</div><div>Move</div><div>Drag</div><div>Look around</div><div>▲ ▼</div><div>Fly up / down, or jump on foot</div><div>Walk / Fly</div><div>Drop in anywhere and explore at street level</div><div>Map</div><div>Full map and fast travel</div><div>Shoot</div><div>Shooter mode: fight waves of bots (hold Fire)</div>';
 }
 
 let last = performance.now(), slow = 0, tick = 0;
@@ -1161,10 +1449,12 @@ function frame(now) {
     camera.position.set(Math.sin(a) * 2300 + 200, 640, Math.cos(a) * 2300 - 300);
     camera.lookAt(200, 120, -300);
   } else if (!mapOpen && $('start').classList.contains('hidden')) {
-    updatePlayer(dt);
+    if (!shooter.dead) updatePlayer(dt);
     checkDiscoveries();
+    updateShooter(dt);
   }
   sky.position.copy(camera.position);
+  updateTracers(dt);
   updateTrains(time);
   if (wheel) wheel.rotation.z = time * 0.12;
   if (jet) { const s = 26 + Math.sin(time * 2.3) * 3 + Math.sin(time * 7.1); jet.scale.set(1, s, 1); jet.material.opacity = 0.55 * (1 - 0.6 * tod.night); }
@@ -1185,6 +1475,6 @@ function frame(now) {
 // let the start card paint before the heavy build
 requestAnimationFrame(() => setTimeout(() => {
   try { init(); } catch (err) { $('loading').textContent = 'Could not start: ' + err.message; console.error(err); return; }
-  window.__chi = { player, placeAt, setMode, LANDMARKS, ll, cycleTime, begin };
+  window.__chi = { shooter, startShooter, player, placeAt, setMode, LANDMARKS, ll, cycleTime, begin };
   requestAnimationFrame(frame);
 }, 30));

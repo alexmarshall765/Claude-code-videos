@@ -7,6 +7,7 @@ An explorable 3D model of downtown Chicago in **one offline HTML file**: [`chica
 - Fly or walk (with collisions — you can land on rooftops), a minimap, a full map with fast travel
 - 23 landmarks to discover, marked by golden beacons
 - Day, golden hour and night (windows light up)
+- A simple first-person shooter mode: fight waves of bots on the streets
 
 ## Controls
 
@@ -17,6 +18,7 @@ An explorable 3D model of downtown Chicago in **one offline HTML file**: [`chica
 | `Shift` | Boost / sprint (mouse wheel changes flying speed) |
 | `F` | Switch between flying and walking |
 | `M` | Map and fast travel |
+| `G` | Start / quit shooter mode (click to fire, `R` to reload) |
 | `T` / `L` / `H` | Time of day / labels / help |
 
 On a phone or tablet there is an on-screen stick and buttons.
