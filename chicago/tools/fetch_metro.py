@@ -20,7 +20,7 @@ f=(pc.field("bbox","xmin")<E)&(pc.field("bbox","xmax")>W)&(pc.field("bbox","ymin
 w=None; n=0
 for b in d.to_batches(columns=cols, filter=f, batch_size=200000):
     if b.num_rows==0: continue
-    if w is None: w=pq.ParquetWriter(fos.environ.get("CHI_METRO_RAW", "../metro/") + f"{name}.parquet", b.schema)
+    if w is None: w=pq.ParquetWriter(os.environ.get("CHI_METRO_RAW", "../metro/") + f"{name}.parquet", b.schema)
     w.write_batch(b); n+=b.num_rows
     print(name, n, round(time.time()-t), flush=True)
 w.close(); print("DONE", name, n, round(time.time()-t), flush=True)
