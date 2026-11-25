@@ -1,5 +1,7 @@
 // Chicago 3D — a self-contained, offline, explorable model of downtown Chicago.
 import * as THREE from 'three';
+import { createCore } from './metro-core.js';
+/* global __METRO_WORKER__ */
 
 const CITY = JSON.parse(document.getElementById('city-data').textContent);
 const $ = (id) => document.getElementById(id);
@@ -27,7 +29,7 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPrefere
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.setSize(window.innerWidth, window.innerHeight, false);
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(68, window.innerWidth / window.innerHeight, 0.3, 80000);
+const camera = new THREE.PerspectiveCamera(68, window.innerWidth / window.innerHeight, 0.3, 260000);
 camera.rotation.order = 'YXZ';
 
 // ───────────────────────────── shared shading ─────────────────────────────
@@ -155,18 +157,29 @@ const roadMat = shader(/* glsl */`
     vec3 alb = vCol;
     float fw = fwidth(vR.x) + 0.001;
     float vis = 1.0 - smoothstep(0.25, 0.9, fw);
-    if (vR.z > 0.5) {
+    float fl = floor(vR.z + 0.5);
+    if (fl > 0.5 && fl < 2.5) {
       float cl = 1.0 - smoothstep(0.10, 0.10 + fw, abs(abs(vR.x) - 0.22));
       alb = mix(alb, vec3(0.86, 0.70, 0.22), cl * vis);
-      if (vR.z > 1.5) {
+      if (fl > 1.5) {
         float ln = 1.0 - smoothstep(0.09, 0.09 + fw, abs(abs(vR.x) - 3.4));
         float dash = step(fract(vR.y / 9.0), 0.35);
         alb = mix(alb, vec3(0.85), ln * dash * vis);
       }
+    } else if (fl > 2.5 && fl < 3.5) {        // runway: centreline dashes and edge stripes
+      float cl = (1.0 - smoothstep(0.5, 0.5 + fw, abs(vR.x))) * step(fract(vR.y / 60.0), 0.5);
+      float edge = 1.0 - smoothstep(0.45, 0.45 + fw, abs(abs(vR.x) - 21.0));
+      alb = mix(alb, vec3(0.93), max(cl, edge) * vis);
+    } else if (fl > 3.5 && fl < 4.5) {        // taxiway: yellow centreline
+      alb = mix(alb, vec3(0.86, 0.70, 0.22), (1.0 - smoothstep(0.16, 0.16 + fw, abs(vR.x))) * vis);
+    } else if (fl > 4.5 && fl < 5.5) {        // railway: sleepers and two rails on ballast
+      alb = mix(alb, vec3(0.30, 0.24, 0.18), step(fract(vR.y / 0.65), 0.35) * step(abs(vR.x), 1.3) * 0.8 * vis);
+      alb = mix(alb, vec3(0.45, 0.43, 0.41), (1.0 - smoothstep(0.05, 0.05 + fw, abs(abs(vR.x) - 0.72))) * vis);
     }
     alb *= mix(1.0, 0.9 + 0.2 * (n2(vW.xz * 2.3) * 0.5 + n2(vW.xz * 0.31) * 0.5), exp(-distance(vW, cameraPosition) * 0.006));
     vec3 c = alb * lightSh(vec3(0.0, 1.0, 0.0), vW);
-    c += uNight * step(0.5, vR.z) * vec3(0.30, 0.20, 0.09) * (0.55 + 0.45 * sin(vR.y * 0.21) * sin(vR.y * 0.21));
+    float lamp = fl < 0.5 ? 0.6 : fl < 2.5 ? 1.0 : 0.0;
+    c += uNight * lamp * vec3(0.30, 0.20, 0.09) * (0.55 + 0.45 * sin(vR.y * 0.21) * sin(vR.y * 0.21));
     gl_FragColor = vec4(fogged(c, vW), 1.0);
   }
 `, { depthTest: false, depthWrite: false });
@@ -209,7 +222,15 @@ const buildingMat = shader(/* glsl */`
     vec3 L = lightSh(n, vW);
     float sd = floor(vSeed * 255.0 + 0.5);          // exact per-building integer, so the hashes below are stable
     vec3 c;
-    if (style > 2.5) {                       // roofs
+    if (style > 3.5) {                       // pitched roofs: rows of asphalt shingles
+      vec2 g = vUv.xy;
+      float rowN = g.y / 0.3, fy = fwidth(rowN) + 1e-4, sharp = 1.0 - smoothstep(0.3, 0.9, fy);
+      float row = fract(rowN), tab = fract(g.x / 0.95 + floor(rowN) * 0.5);
+      float shade = 1.0 - 0.24 * (1.0 - smoothstep(0.0, 0.14 + fy, row)) * sharp;
+      shade *= 1.0 - 0.12 * step(0.95, tab) * sharp;
+      shade *= mix(1.0, 0.86 + 0.28 * hash21(vec2(floor(g.x / 0.95 + floor(rowN) * 0.5), floor(rowN)) + sd), sharp);
+      c = vCol * mix(1.0, shade, near) * (0.92 + 0.16 * n2(vW.xz * 0.4)) * L;
+    } else if (style > 2.5) {                // flat roofs
       vec3 alb = mix(vCol, vec3(0.44, 0.45, 0.47), 0.65);
       alb *= mix(1.0, 0.82 + 0.36 * n2(vW.xz * 0.8), near);
       c = alb * L;
@@ -452,7 +473,7 @@ function buildGround() {
   const g = new FlatBuilder();
   // the base land is a grid of modest quads rather than one giant one
   const GT = 6000;
-  for (let ix = -8; ix < 8; ix++) for (let iy = -8; iy < 8; iy++) {
+  if (!document.getElementById('metro-head')) for (let ix = -8; ix < 8; ix++) for (let iy = -8; iy < 8; iy++) {
     const b = g.n, x = ix * GT, y = iy * GT;
     g.pos.push(x, 0, -y, x + GT, 0, -y, x + GT, 0, -(y + GT), x, 0, -(y + GT));
     for (let k = 0; k < 4; k++) g.col.push(...C.ground);
@@ -498,7 +519,7 @@ function buildGround() {
     if (rd.c <= 4) mapLine(rd.pts, rd.c <= 1 ? 3.2 : rd.c <= 3 ? 2.2 : 1, rd.c <= 3 ? '#77818d' : '#566070');
     const hw = ROAD_W[rd.c] / 2, pts = rd.pts;
     for (let i = 0; i + 3 < pts.length; i += 2) {
-      const s = { x1: pts[i], y1: pts[i + 1], x2: pts[i + 2], y2: pts[i + 3], hw, ni: rd.ni };
+      const s = { x1: pts[i], y1: pts[i + 1], x2: pts[i + 2], y2: pts[i + 3], hw, ni: rd.ni, name: rd.ni >= 0 ? CITY.names[rd.ni] : null };
       gridAdd(rGrid, Math.min(s.x1, s.x2) - hw - 4, Math.min(s.y1, s.y2) - hw - 4, Math.max(s.x1, s.x2) + hw + 4, Math.max(s.y1, s.y2) + hw + 4, s);
     }
   }
@@ -616,7 +637,7 @@ function buildBuildings() {
     }
     // collision / picking / minimap
     if (kind !== 8 && h >= 2.5) {
-      const fp = { pts: outer, minx, miny, maxx, maxy, h, m, ni, kind };
+      const fp = { pts: outer, minx, miny, maxx, maxy, h, m, ni, kind, name: ni >= 0 ? CITY.names[ni] : null };
       gridAdd(bGrid, minx, miny, maxx, maxy, fp);
     }
     const shade = clamp(70 + h * 0.55, 70, 205) | 0;
@@ -856,6 +877,366 @@ function renderShadow() {
   renderer.setRenderTarget(null);
 }
 
+// ───────────────────────────── Chicagoland: streamed metro tiles ─────────────────────────────
+// The whole metro area ships as 1 km tiles. A worker decodes the tiles near the camera into geometry;
+// everything further away is a ground texture (with a built-up mask and night lights).
+const MH = (() => { const el = $('metro-head'); try { return el ? JSON.parse(el.textContent) : null; } catch (e) { return null; } })();
+const METRO_KIND = [1, 5, 2, 10, 9, 6];            // metro building kind -> KIND_NAMES index
+const metro = { ready: false, tiles: new Map(), inflight: 0, queue: [], client: null, R: 2000, TR: 1000, mapDirty: true, tilesTex: null, overview: null, failed: false };
+const inDowntown = (x, y) => x > BX0 && x < BX1 && y > BY0 && y < BY1;
+function metroTileId(x, y) {
+  if (!MH) return -1;
+  const i = Math.floor((x - MH.x0) / MH.tile), j = Math.floor((y - MH.y0) / MH.tile);
+  return i < 0 || j < 0 || i >= MH.nx || j >= MH.ny ? -1 : i * MH.ny + j;
+}
+// true once the buildings around (x, y) exist, so it is safe to put the player on the ground there
+function areaReady(x, y) {
+  if (!MH || metro.failed || inDowntown(x, y)) return true;
+  const id = metroTileId(x, y); if (id < 0) return true;
+  const t = metro.tiles.get(id); return !!(t && t.state === 'ready');
+}
+const metroStatus = (t) => { const el = $('metroStatus'); if (el) el.textContent = t; };
+
+async function b64Bytes(id) {
+  const el = $(id); const s = el.textContent.trim(); el.textContent = '';
+  try { return new Uint8Array(await (await fetch('data:application/octet-stream;base64,' + s)).arrayBuffer()); } catch (e) {
+    const bin = atob(s), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u;
+  }
+}
+async function b64Image(id) {
+  const el = $(id); const img = new Image(); img.src = 'data:image/webp;base64,' + el.textContent.trim(); el.textContent = '';
+  await img.decode(); return img;
+}
+
+// worker client, with an in-page fallback for browsers that refuse workers on file:// pages
+function makeClient(onmsg) {
+  let core = null;
+  const local = {
+    worker: false,
+    post(m) {
+      setTimeout(async () => {
+        try {
+          if (m.type === 'init') {
+            const st = new Blob([m.gz]).stream().pipeThrough(new DecompressionStream('gzip'));
+            core = createCore(m.head, new Uint8Array(await new Response(st).arrayBuffer()), m.downtown);
+            onmsg({ type: 'ready', g: core.globals() });
+          } else if (m.type === 'tile') onmsg({ type: 'tile', id: m.id, t: core.tile(m.id, m.trees) });
+          else if (m.type === 'trees') onmsg({ type: 'trees', id: m.id, tr: core.trees(m.id) });
+        } catch (err) { onmsg({ type: 'error', id: m.id, msg: String(err) }); }
+      }, 0);
+    },
+  };
+  let w = null;
+  try { w = new Worker(URL.createObjectURL(new Blob([__METRO_WORKER__], { type: 'text/javascript' }))); } catch (e) { w = null; }
+  if (!w) return local;
+  const client = { worker: true, post: (m) => w.postMessage(m) };
+  let initMsg = null, switched = false;
+  const toLocal = () => { if (switched) return; switched = true; try { w.terminate(); } catch (e) { /* ignore */ } client.worker = false; client.post = local.post; if (initMsg) local.post(initMsg); };
+  w.onmessage = (e) => onmsg(e.data);
+  w.onerror = (e) => { console.warn('tile worker failed, building tiles on the main thread', e.message); toLocal(); };
+  client.post = (m) => { if (m.type === 'init') initMsg = m; w.postMessage(m); };
+  return client;
+}
+
+async function startMetro() {
+  if (!MH) return;
+  try {
+    metroStatus('Unpacking Chicagoland…');
+    const gz = await b64Bytes('metro-bin');
+    const [color, lights, m00, m01, m10, m11] = await Promise.all(['metro-color', 'metro-lights', 'metro-mask-00', 'metro-mask-01', 'metro-mask-10', 'metro-mask-11'].map(b64Image));
+    buildMetroGround(color, [[m00, m01], [m10, m11]], lights);
+    buildOverview(color, [[m00, m01], [m10, m11]]);
+    metro.client = makeClient(onMetroMsg);
+    metro.client.post({ type: 'init', head: MH, gz: gz.buffer, downtown: [BX0, BY0, BX1, BY1] });
+  } catch (err) {
+    console.error(err); metro.failed = true; metroStatus('The metro area could not be loaded in this browser — downtown still works.');
+  }
+}
+
+// ── ground: four 55 km quadrants sharing one colour texture, each with its own built-up mask
+function buildMetroGround(color, masks, lights) {
+  const tex = (img) => {
+    const t = new THREE.Texture(img); t.colorSpace = THREE.NoColorSpace; t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+    t.minFilter = THREE.LinearMipmapLinearFilter; t.generateMipmaps = true; t.needsUpdate = true; return t;
+  };
+  const cT = tex(color), lT = tex(lights);
+  const tt = new THREE.DataTexture(new Uint8Array(MH.nx * MH.ny), MH.nx, MH.ny, THREE.RedFormat);
+  tt.magFilter = tt.minFilter = THREE.NearestFilter; tt.needsUpdate = true; metro.tilesTex = tt;
+  const G = MH.ground, half = G.ext / 2;
+  const vs = 'varying vec3 vW; void main(){ vW = position; gl_Position = projectionMatrix * viewMatrix * vec4(position, 1.0); }';
+  const fs = /* glsl */`
+    uniform sampler2D uColor, uMask, uLights, uTiles; uniform vec4 uG, uQ, uTG, uDown; varying vec3 vW;
+    void main(){
+      vec2 m = vec2(vW.x, -vW.z);
+      vec2 guv = (m - uG.xy) / uG.z;
+      vec3 col = texture2D(uColor, guv).rgb;
+      float built = texture2D(uMask, (m - uQ.xy) / uQ.z).r;
+      float loaded = texture2D(uTiles, (m - uTG.xy) / uTG.zw).r;
+      if (m.x > uDown.x && m.x < uDown.z && m.y > uDown.y && m.y < uDown.w) loaded = 1.0;
+      float d = distance(vW, cameraPosition);
+      float gr = mix(1.0, 0.88 + 0.24 * (n2(vW.xz * 1.7) * 0.6 + n2(vW.xz * 0.19) * 0.4), exp(-d * 0.005));
+      vec3 alb = mix(col * gr, vec3(0.34, 0.35, 0.37), built * 0.92 * (1.0 - loaded));
+      vec3 c = alb * lightSh(vec3(0.0, 1.0, 0.0), vW);
+      float lt = texture2D(uLights, guv).r;
+      c += uNight * vec3(1.0, 0.55, 0.2) * smoothstep(0.08, 0.9, lt) * pow(lt, 1.4) * 1.5 * mix(1.0, 0.15, loaded);
+      gl_FragColor = vec4(fogged(c, vW), 1.0);
+    }`;
+  for (const i of [0, 1]) for (const j of [0, 1]) {
+    const qx = G.x0 + i * half, qy = G.y0 + (1 - j) * half;          // j = 0 is the northern half
+    const mat = new THREE.ShaderMaterial({
+      uniforms: Object.assign({}, U, { uColor: { value: cT }, uMask: { value: tex(masks[i][j]) }, uLights: { value: lT }, uTiles: { value: tt },
+        uG: { value: new THREE.Vector4(G.x0, G.y0, G.ext, 0) }, uQ: { value: new THREE.Vector4(qx, qy, half, 0) },
+        uTG: { value: new THREE.Vector4(MH.x0, MH.y0, MH.nx * MH.tile, MH.ny * MH.tile) }, uDown: { value: new THREE.Vector4(BX0, BY0, BX1, BY1) } }),
+      vertexShader: vs, fragmentShader: GLSL_COMMON + fs, depthTest: false, depthWrite: false,
+    });
+    const geo = new THREE.PlaneGeometry(half, half, 28, 28); geo.rotateX(-Math.PI / 2); geo.translate(qx + half / 2, 0, -(qy + half / 2));
+    const m = new THREE.Mesh(geo, mat); m.renderOrder = -60; scene.add(m);
+  }
+  // land beyond the metro area
+  const og = new THREE.PlaneGeometry(700000, 700000, 40, 40); og.rotateX(-Math.PI / 2);
+  const col = new Uint8Array(og.attributes.position.count * 3); for (let k = 0; k < col.length; k += 3) col.set([150, 148, 132], k);
+  og.setAttribute('aCol', new THREE.BufferAttribute(col, 3, true));
+  const om = new THREE.Mesh(og, flatMat); om.renderOrder = -62; om.frustumCulled = false; scene.add(om);
+}
+
+// ── overview map (dark theme) for the full map and the far minimap, made from the ground textures
+function buildOverview(color, masks) {
+  const S = 4096, cv = document.createElement('canvas'); cv.width = cv.height = S;
+  const ctx = cv.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(color, 0, 0, S, S);
+  const base = ctx.getImageData(0, 0, S, S);
+  for (const i of [0, 1]) for (const j of [0, 1]) ctx.drawImage(masks[i][j], i * S / 2, j * S / 2, S / 2, S / 2);
+  const mk = ctx.getImageData(0, 0, S, S), a = base.data, b = mk.data;
+  for (let k = 0; k < a.length; k += 4) {
+    const r = a[k], g = a[k + 1], bl = a[k + 2], m = b[k] / 255 * 0.8;
+    let R = 50, Gc = 58, Bc = 68;
+    if (bl > r + 40) { R = 31; Gc = 79; Bc = 120; } else if (g > r + 8) { R = 52; Gc = 90; Bc = 60; }
+    a[k] = R + (150 - R) * m; a[k + 1] = Gc + (158 - Gc) * m; a[k + 2] = Bc + (170 - Bc) * m;
+  }
+  ctx.putImageData(base, 0, 0);
+  metro.overview = cv;
+}
+const ovx = (x) => (x - MH.ground.x0) / MH.ground.ext * 4096, ovy = (y) => (MH.ground.y0 + MH.ground.ext - y) / MH.ground.ext * 4096;
+
+// ── messages from the worker
+function onMetroMsg(m) {
+  if (m.type === 'ready') { onMetroReady(m.g); return; }
+  if (m.type === 'error') {
+    console.error('tile worker:', m.msg);
+    if (m.id === undefined) { metro.failed = true; metroStatus('The metro area could not be loaded — downtown still works.'); return; }
+    metro.inflight = Math.max(0, metro.inflight - 1); const t = metro.tiles.get(m.id); if (t) t.state = 'failed'; return;
+  }
+  metro.queue.push(m);
+}
+let tallMesh = null;
+function onMetroReady(g) {
+  if (g.water.idx.length) {
+    const wg = new THREE.BufferGeometry();
+    wg.setAttribute('position', new THREE.BufferAttribute(g.water.pos, 3)); wg.setIndex(new THREE.BufferAttribute(g.water.idx, 1));
+    const wm = new THREE.Mesh(wg, waterMat); wm.renderOrder = -46; wm.frustumCulled = false; scene.add(wm);
+  }
+  tallMesh = addBuildingMesh(g.tall);
+  const fp = g.tallFp;
+  for (let k = 0; k < fp.h.length; k++) {
+    const item = footprint(fp, k, -1); const ni = g.tallNames[k];
+    item.name = ni >= 0 ? MH.names[ni] : null;
+    gridAdd(bGrid, item.minx, item.miny, item.maxx, item.maxy, item);
+    if (item.name && !labelSeen.has(item.name)) { labelSeen.add(item.name); labelCands.push({ name: item.name, x: (item.minx + item.maxx) / 2, y: (item.miny + item.maxy) / 2, h: item.h, lm: null }); }
+  }
+  metro.ready = true;
+  metroStatus(`Chicagoland ready — ${(MH.nRect + MH.nPoly + fp.h.length).toLocaleString()} buildings streamed in as you explore.`);
+}
+function footprint(fp, k, tile) {
+  const pts = fp.xy.subarray(fp.start[k], fp.start[k + 1]);
+  let minx = 1e9, miny = 1e9, maxx = -1e9, maxy = -1e9;
+  for (let i = 0; i < pts.length; i += 2) { const x = pts[i], y = pts[i + 1]; if (x < minx) minx = x; if (x > maxx) maxx = x; if (y < miny) miny = y; if (y > maxy) maxy = y; }
+  return { pts, minx, miny, maxx, maxy, h: fp.h[k], m: 0, ni: -1, name: null, kind: METRO_KIND[fp.kind[k]] || 0, tile };
+}
+function addBuildingMesh(b) {
+  if (!b.idx.length) return null;
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(b.pos, 3));
+  g.setAttribute('aNrm', new THREE.BufferAttribute(b.nrm, 3, true));
+  g.setAttribute('aCol', new THREE.BufferAttribute(b.col, 4, true));
+  g.setAttribute('aUv', new THREE.BufferAttribute(b.uv, 4));
+  g.setIndex(new THREE.BufferAttribute(b.idx, 1));
+  g.computeBoundingSphere();
+  const m = new THREE.Mesh(g, buildingMat); m.layers.enable(1); scene.add(m); return m;
+}
+function addFlatMesh(f, mat, order) {
+  if (!f.idx.length) return null;
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(f.pos, 3));
+  if (f.col && f.col.length) g.setAttribute('aCol', new THREE.BufferAttribute(f.col, 3, true));
+  if (f.ex) g.setAttribute('aR', new THREE.BufferAttribute(f.ex, 3));
+  g.setIndex(new THREE.BufferAttribute(f.idx, 1));
+  g.computeBoundingSphere();
+  const m = new THREE.Mesh(g, mat); m.renderOrder = order; scene.add(m); return m;
+}
+function gridAddK(grid, minx, miny, maxx, maxy, item, keys) {
+  const x0 = Math.floor(minx / CELL), x1 = Math.floor(maxx / CELL), y0 = Math.floor(miny / CELL), y1 = Math.floor(maxy / CELL);
+  for (let ix = x0; ix <= x1; ix++) for (let iy = y0; iy <= y1; iy++) {
+    const k = cellKey(ix + 2048, iy + 2048); let c = grid.get(k); if (!c) grid.set(k, c = []); c.push(item); keys.add(k);
+  }
+}
+function gridRemoveTile(grid, keys, id) {
+  for (const k of keys) {
+    const c = grid.get(k); if (!c) continue;
+    let w = 0; for (let r = 0; r < c.length; r++) if (c[r].tile !== id) c[w++] = c[r];
+    c.length = w; if (!w) grid.delete(k);
+  }
+}
+function setTileTex(id, v) {
+  const i = Math.floor(id / MH.ny), j = id % MH.ny;
+  metro.tilesTex.image.data[j * MH.nx + i] = v; metro.tilesTex.needsUpdate = true;
+}
+function applyTile(m) {
+  const rec = metro.tiles.get(m.id);
+  metro.inflight = Math.max(0, metro.inflight - 1);
+  if (!rec || rec.state !== 'pending') return;
+  const t = m.t;
+  rec.meshes = [addBuildingMesh(t.b), addFlatMesh(t.land, flatMat, -52), addFlatMesh(t.sw, flatMat, -39), addFlatMesh(t.pk, flatMat, -38), addFlatMesh(t.rd, roadMat, -36)].filter(Boolean);
+  rec.bKeys = new Set(); rec.rKeys = new Set(); rec.fp = t.fp; rec.segs = t.segs;
+  for (let k = 0; k < t.fp.h.length; k++) { const it = footprint(t.fp, k, m.id); gridAddK(bGrid, it.minx, it.miny, it.maxx, it.maxy, it, rec.bKeys); }
+  const sg = t.segs;
+  for (let i = 0; i < sg.length; i += 7) {
+    const s = { x1: sg[i], y1: sg[i + 1], x2: sg[i + 2], y2: sg[i + 3], hw: sg[i + 4], ni: -1, name: sg[i + 5] >= 0 ? MH.names[sg[i + 5]] : null, tile: m.id };
+    gridAddK(rGrid, Math.min(s.x1, s.x2) - s.hw - 4, Math.min(s.y1, s.y2) - s.hw - 4, Math.max(s.x1, s.x2) + s.hw + 4, Math.max(s.y1, s.y2) + s.hw + 4, s, rec.rKeys);
+  }
+  if (t.trees) addTrees(rec, t.trees);
+  rec.state = 'ready'; setTileTex(m.id, 255); metro.mapDirty = true;
+}
+function unloadTile(id) {
+  const rec = metro.tiles.get(id); if (!rec) return;
+  if (rec.state === 'ready') {
+    for (const m of rec.meshes) { scene.remove(m); m.geometry.dispose(); }
+    removeTrees(rec);
+    gridRemoveTile(bGrid, rec.bKeys, id); gridRemoveTile(rGrid, rec.rKeys, id);
+    setTileTex(id, 0); metro.mapDirty = true;
+  }
+  metro.tiles.delete(id);
+}
+
+// ── trees (instanced, per tile)
+let treeGeoD = null, treeGeoC = null;
+function treeGeos() {
+  if (treeGeoD) return;
+  const d = new LitBuilder();
+  d.geo(new THREE.CylinderGeometry(0.22, 0.34, 3, 5), M4(0, 1.5, 0), [0.36, 0.27, 0.2]);
+  d.geo(new THREE.IcosahedronGeometry(2.3, 0), M4(0, 4.6, 0, 1, 1.25, 1), [1, 1, 1]);
+  d.geo(new THREE.IcosahedronGeometry(1.5, 0), M4(0.9, 3.6, 0.5, 1, 1, 1, 1), [0.9, 0.95, 0.9]);
+  treeGeoD = d.geometry();
+  const c = new LitBuilder();
+  c.geo(new THREE.CylinderGeometry(0.18, 0.26, 2.4, 5), M4(0, 1.2, 0), [0.32, 0.24, 0.18]);
+  c.geo(new THREE.ConeGeometry(2.4, 4.2, 7), M4(0, 3.6, 0), [1, 1, 1]);
+  c.geo(new THREE.ConeGeometry(1.8, 3.6, 7), M4(0, 5.6, 0), [1, 1, 1]);
+  c.geo(new THREE.ConeGeometry(1.1, 2.8, 7), M4(0, 7.4, 0), [1, 1, 1]);
+  treeGeoC = c.geometry();
+}
+const _tm = new THREE.Matrix4(), _tq = new THREE.Quaternion(), _ts = new THREE.Vector3(), _tp = new THREE.Vector3(), _tc = new THREE.Color(), _tY = new THREE.Vector3(0, 1, 0);
+function addTrees(rec, tr) {
+  treeGeos(); removeTrees(rec);
+  const n = tr.length / 7; let nc = 0; for (let i = 0; i < n; i++) if (tr[i * 7 + 4] > 0.5) nc++;
+  rec.trees = [];
+  const mk = (geo, cnt) => { if (!cnt) return null; const m = new THREE.InstancedMesh(geo, litMat, cnt); m.layers.enable(1); rec.trees.push(m); return m; };
+  const md = mk(treeGeoD, n - nc), mc = mk(treeGeoC, nc); let kd = 0, kc = 0;
+  for (let i = 0; i < n; i++) {
+    const o = i * 7, sc = tr[o + 2], con = tr[o + 4] > 0.5, br = tr[o + 5], hue = tr[o + 6];
+    _tq.setFromAxisAngle(_tY, tr[o + 3]); _ts.set(sc, sc * (0.9 + hue * 0.35), sc); _tp.set(tr[o], 0, -tr[o + 1]);
+    _tm.compose(_tp, _tq, _ts);
+    if (con) { _tc.setRGB(0.2 * br, 0.38 * br, 0.24 * br); mc.setMatrixAt(kc, _tm); mc.setColorAt(kc++, _tc); }
+    else { _tc.setRGB((0.34 + hue * 0.22) * br, (0.6 + hue * 0.12) * br, (0.24 + hue * 0.1) * br); md.setMatrixAt(kd, _tm); md.setColorAt(kd++, _tc); }
+  }
+  for (const m of rec.trees) { m.computeBoundingSphere(); scene.add(m); }
+}
+function removeTrees(rec) {
+  if (rec.trees) for (const m of rec.trees) { scene.remove(m); m.dispose(); }
+  rec.trees = null;
+}
+
+// ── which tiles to have loaded: everything within R of the camera, trees within TR
+function updateMetro() {
+  if (!metro.ready || !metro.client) return;
+  const cx = camera.position.x, cy = -camera.position.z, alt = Math.max(0, camera.position.y);
+  const R = metro.R = clamp(1900 + alt * 1.7, 1900, 5200), TR = metro.TR = alt < 900 ? 1000 : 0;
+  const T = MH.tile, fx = -Math.sin(player.yaw), fy = Math.cos(player.yaw);
+  const i0 = Math.max(0, Math.floor((cx - R - MH.x0) / T)), i1 = Math.min(MH.nx - 1, Math.floor((cx + R - MH.x0) / T));
+  const j0 = Math.max(0, Math.floor((cy - R - MH.y0) / T)), j1 = Math.min(MH.ny - 1, Math.floor((cy + R - MH.y0) / T));
+  const want = [];
+  for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) {
+    const tx = MH.x0 + (i + 0.5) * T, ty = MH.y0 + (j + 0.5) * T;
+    const d = Math.hypot(Math.max(0, Math.abs(cx - tx) - T / 2), Math.max(0, Math.abs(cy - ty) - T / 2));
+    if (d > R) continue;
+    const id = i * MH.ny + j, rec = metro.tiles.get(id);
+    if (!rec) { const ahead = (tx - cx) * fx + (ty - cy) * fy > 0; want.push({ id, d, pri: d * (ahead ? 1 : 1.7) }); }
+    else if (rec.state === 'ready' && TR && d < TR && !rec.trees && !rec.treesPending && metro.inflight < 3) {
+      rec.treesPending = true; metro.inflight++; metro.client.post({ type: 'trees', id });
+    }
+  }
+  want.sort((a, b) => a.pri - b.pri);
+  for (const w of want) {
+    if (metro.inflight >= 3) break;
+    metro.tiles.set(w.id, { state: 'pending', trees: null });
+    metro.inflight++; metro.client.post({ type: 'tile', id: w.id, trees: TR > 0 && w.d < TR });
+  }
+  for (const [id, rec] of metro.tiles) {
+    const i = Math.floor(id / MH.ny), j = id % MH.ny, tx = MH.x0 + (i + 0.5) * T, ty = MH.y0 + (j + 0.5) * T;
+    const d = Math.hypot(Math.max(0, Math.abs(cx - tx) - T / 2), Math.max(0, Math.abs(cy - ty) - T / 2));
+    if (d > R + 1200) unloadTile(id);
+    else if (rec.trees && d > TR + 500) removeTrees(rec);
+  }
+}
+function processMetroQueue() {
+  const t0 = performance.now(), had = metro.queue.length;
+  while (metro.queue.length && performance.now() - t0 < 6) {
+    const m = metro.queue.shift();
+    if (m.type === 'tile') applyTile(m);
+    else if (m.type === 'trees') {
+      metro.inflight = Math.max(0, metro.inflight - 1);
+      const rec = metro.tiles.get(m.id); if (rec) { rec.treesPending = false; if (rec.state === 'ready' && metro.TR) addTrees(rec, m.tr); }
+    }
+  }
+  if (had) updateMetro();        // keep the worker busy regardless of frame rate
+}
+
+// ── local street map around the player (minimap / zoomed-in full map)
+const LM = { cv: document.createElement('canvas'), S: 0.36, cx: 1e9, cy: 1e9, t: 0 };
+LM.cv.width = LM.cv.height = 1200;
+const lmx = (x) => (x - LM.cx) * LM.S + 600, lmy = (y) => (LM.cy - y) * LM.S + 600;
+function renderLocalMap(force) {
+  const now = performance.now();
+  const moved = Math.hypot(player.x - LM.cx, player.y - LM.cy) > 650;
+  if (!force && !moved && !(metro.mapDirty && now - LM.t > 1500)) return;
+  LM.cx = player.x; LM.cy = player.y; LM.t = now; metro.mapDirty = false;
+  const c = LM.cv.getContext('2d'), k = LM.S;
+  c.setTransform(1, 0, 0, 1, 0, 0); c.fillStyle = '#39424d'; c.fillRect(0, 0, 1200, 1200);
+  if (metro.overview) {
+    const s = 4096 / MH.ground.ext;          // overview px per metre
+    const x0 = LM.cx - 600 / k, y1 = LM.cy + 600 / k;
+    c.drawImage(metro.overview, ovx(x0), ovy(y1), 1200 / k * s, 1200 / k * s, 0, 0, 1200, 1200);
+  }
+  if (BX1 > LM.cx - 600 / k && BX0 < LM.cx + 600 / k && BY1 > LM.cy - 600 / k && BY0 < LM.cy + 600 / k)
+    c.drawImage(mapCv, lmx(BX0), lmy(BY1), (BX1 - BX0) * k, (BY1 - BY0) * k);
+  c.lineCap = c.lineJoin = 'round';
+  for (const rec of metro.tiles.values()) {
+    if (rec.state !== 'ready') continue;
+    const sg = rec.segs;
+    for (const cls of [4, 3, 2, 1, 0]) {
+      c.beginPath();
+      for (let i = 0; i < sg.length; i += 7) if (sg[i + 6] === cls) { c.moveTo(lmx(sg[i]), lmy(sg[i + 1])); c.lineTo(lmx(sg[i + 2]), lmy(sg[i + 3])); }
+      c.lineWidth = cls === 0 ? 4 : cls === 1 ? 3 : cls <= 3 ? 2.2 : 1; c.strokeStyle = cls === 0 ? '#c9a24a' : cls <= 3 ? '#77818d' : '#566070'; c.stroke();
+    }
+    const fp = rec.fp; c.fillStyle = '#7d848d'; c.beginPath();
+    for (let b = 0; b < fp.h.length; b++) {
+      const s0 = fp.start[b], s1 = fp.start[b + 1];
+      c.moveTo(lmx(fp.xy[s0]), lmy(fp.xy[s0 + 1]));
+      for (let i = s0 + 2; i < s1; i += 2) c.lineTo(lmx(fp.xy[i]), lmy(fp.xy[i + 1]));
+      c.closePath();
+    }
+    c.fill();
+  }
+}
+
 // ───────────────────────────── landmarks ─────────────────────────────
 const LANDMARKS = [
   ['Willis Tower', 41.8789, -87.6359, 442, '110 stories and 442 m to the roof. The tallest building in the world from 1973 until 1998 — many locals still call it the Sears Tower.'],
@@ -881,7 +1262,24 @@ const LANDMARKS = [
   ['Shedd Aquarium', 41.86760, -87.61400, 30, 'Opened in 1930 on the lakefront Museum Campus.'],
   ['Adler Planetarium', 41.86635, -87.60680, 25, 'Opened in 1930 as the first planetarium in the Western Hemisphere.'],
   ['Soldier Field', 41.86230, -87.61670, 45, 'Opened in 1924 and home of the Chicago Bears.'],
-].map(([name, lat, lon, h, fact], i) => { const [x, y] = ll(lat, lon); return { i, name, x, y, h, fact, found: false }; });
+  ['Wrigley Field', 41.94840, -87.65530, 30, 'Home of the Chicago Cubs since 1916, famous for its ivy-covered outfield walls and hand-turned scoreboard.', 220],
+  ['Lincoln Park Zoo', 41.92110, -87.63400, 15, 'Founded in 1868, it is one of the oldest zoos in North America — and still free to visit.', 300],
+  ['United Center', 41.88070, -87.67420, 40, 'Home of the Bulls and the Blackhawks since it opened in 1994.', 200],
+  ['Garfield Park Conservatory', 41.88630, -87.71730, 20, 'Opened in 1908, one of the largest greenhouse conservatories in the United States.', 220],
+  ['Rate Field', 41.82990, -87.63380, 40, 'The White Sox ballpark on the South Side, opened in 1991.', 220],
+  ['Museum of Science and Industry', 41.79060, -87.58300, 35, 'Housed in the Palace of Fine Arts, built for the 1893 World’s Columbian Exposition.', 250],
+  ['University of Chicago', 41.78860, -87.59870, 35, 'Founded in 1890 in Hyde Park, known for its Gothic stone quadrangles.', 350],
+  ['Midway International Airport', 41.78680, -87.75220, 15, 'Chicago’s first airport, opened in 1927 on a single square mile of the Southwest Side.', 900],
+  ['O’Hare International Airport', 41.97860, -87.90480, 20, 'Opened to commercial flights in 1955 and now one of the busiest airports in the world.', 1500],
+  ['Northwestern University', 42.05650, -87.67530, 30, 'Founded in 1851, its campus runs along the Lake Michigan shore in Evanston.', 450],
+  ['Bahá’í House of Worship', 42.07380, -87.68450, 40, 'A nine-sided, domed temple in Wilmette, dedicated in 1953.', 200],
+  ['Chicago Botanic Garden', 42.14780, -87.79000, 15, 'Some 385 acres of gardens spread across islands in Glencoe, opened in 1972.', 700],
+  ['Six Flags Great America', 42.37040, -87.93580, 60, 'The theme park in Gurnee, opened in 1976.', 550],
+  ['Woodfield Mall', 42.04690, -88.03780, 20, 'Opened in Schaumburg in 1971, one of the largest shopping malls in the United States.', 450],
+  ['Brookfield Zoo', 41.83230, -87.83370, 15, 'Opened in 1934 and known for exhibits without bars.', 600],
+  ['Morton Arboretum', 41.81600, -88.06850, 20, 'About 1,700 acres of trees in Lisle, founded in 1922 by Joy Morton of Morton Salt.', 900],
+  ['Naperville Riverwalk', 41.77280, -88.14790, 15, 'A brick path along the DuPage River, built for the city’s 150th birthday in 1981.', 400],
+].map(([name, lat, lon, h, fact, r], i) => { const [x, y] = ll(lat, lon); return { i, name, x, y, h, fact, r: r || 130, found: false }; });
 
 const SAVE_KEY = 'chicago3d.found.v1';
 try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || '[]'); for (const n of s) { const l = LANDMARKS.find((q) => q.name === n); if (l) l.found = true; } } catch (e) { /* storage unavailable */ }
@@ -976,9 +1374,10 @@ const keys = Object.create(null);
 const touch = { mx: 0, my: 0, up: false, down: false, boost: false };
 let started = false, mapOpen = false, labelsOn = true;
 const EYE = 1.72;
+const LIM = MH ? [MH.x0 - 3000, MH.y0 - 3000, MH.x1 + 30000, MH.y1 + 3000] : [BX0 - 2500, BY0 - 2500, BX1 + 2500, BY1 + 2500];
 
 function placeAt(x, y, alt, lookX, lookY, lookH = 0) {
-  player.x = clamp(x, BX0 - 800, BX1 + 800); player.y = clamp(y, BY0 - 800, BY1 + 800); player.alt = alt;
+  player.x = clamp(x, LIM[0], LIM[2]); player.y = clamp(y, LIM[1], LIM[3]); player.alt = alt;
   player.vx = player.vy = player.vz = 0;
   if (lookX !== undefined) {
     const dx = lookX - player.x, dy = lookY - player.y;
@@ -1011,7 +1410,7 @@ function updatePlayer(dt) {
     let na = player.alt + player.vy * dt;
     const fl = floorAt(player.x, player.y, player.alt - 1.2) + 2;
     if (na < fl) { na = fl; if (player.vy < 0) player.vy = 0; }
-    player.alt = Math.min(na, 3000);
+    player.alt = Math.min(na, 8000);
   } else {
     const sp = boost ? 15 : 6.5;
     const tx = (-sy * f + cy * s) * sp, ty = (cy * f + sy * s) * sp;
@@ -1026,7 +1425,7 @@ function updatePlayer(dt) {
     if (nf <= fl) { nf = fl; player.vy = 0; player.onGround = true; } else player.onGround = false;
     player.alt = nf + EYE;
   }
-  player.x = clamp(player.x, BX0 - 2500, BX1 + 2500); player.y = clamp(player.y, BY0 - 2500, BY1 + 2500);
+  player.x = clamp(player.x, LIM[0], LIM[2]); player.y = clamp(player.y, LIM[1], LIM[3]);
   camera.position.set(player.x, player.alt, -player.y);
   camera.rotation.set(player.pitch, player.yaw, 0);
 }
@@ -1060,29 +1459,33 @@ const HOODS = [
   ['Lake Michigan', 41.8800, -87.6000], ['Lake Michigan', 41.9000, -87.6080], ['Lake Michigan', 41.8600, -87.5990], ['Prairie District', 41.8570, -87.6220],
   ['Chinatown', 41.8540, -87.6330], ['Pilsen', 41.8560, -87.6550],
 ].map(([n, lat, lon]) => [n, ...ll(lat, lon)]);
-const KIND_NAMES = ['Building', 'House', 'Residential building', 'Office building', 'Shops', 'Garage / utility building', 'Civic building', 'Hotel', 'Canopy'];
+const KIND_NAMES = ['Building', 'House', 'Residential building', 'Office building', 'Shops', 'Garage / outbuilding', 'Civic building', 'Hotel', 'Canopy', 'Industrial building', 'Commercial building'];
 
 const labelBox = $('labels'), labelPool = [];
 for (let i = 0; i < 20; i++) { const d = document.createElement('div'); d.className = 'lab'; labelBox.appendChild(d); labelPool.push(d); }
-const labelCands = [];
+const labelCands = [], labelSeen = new Set();
 function buildLabels() {
-  const seen = new Set();
+  const seen = labelSeen;
   for (const l of LANDMARKS) { labelCands.push({ name: l.name, x: l.x, y: l.y, h: l.h, lm: l }); seen.add(l.name); }
   const lmNear = (x, y) => LANDMARKS.some((l) => Math.hypot(l.x - x, l.y - y) < 70);
   const sorted = CITY.labels.map((a) => ({ name: CITY.names[a[0]], x: a[1] * 0.1, y: a[2] * 0.1, h: a[3] * 0.1, lm: null })).sort((a, b) => b.h - a.h);
   for (const c of sorted) { if (seen.has(c.name) || lmNear(c.x, c.y)) continue; seen.add(c.name); labelCands.push(c); }
+  if (MH) for (const p of MH.places) if (p[3] === 0 || p[3] === 1) labelCands.push({ name: p[0], x: p[1], y: p[2], h: 0, lm: null, place: p[3] === 0 ? 1 : 2, pop: p[4] });
 }
 const tmpV = new THREE.Vector3();
 function updateLabels() {
   const W = window.innerWidth, H = window.innerHeight, walk = player.mode === 'walk';
   const picks = [];
+  const high = player.alt > 160 && !walk;
   if (labelsOn) for (const c of labelCands) {
+    if (c.place && !high) continue;
     const d = Math.hypot(c.x - player.x, c.y - player.y, c.h - player.alt);
-    const range = c.lm ? 3200 : (walk ? 140 + c.h * 3.5 : 260 + c.h * 9);
+    const range = c.lm ? 3200 + c.r * 4 : c.place === 1 ? Math.min(45000, 4000 + Math.sqrt(c.pop) * 40) * Math.min(1, player.alt / 900) : c.place === 2 ? 2600 : (walk ? 140 + c.h * 3.5 : 260 + c.h * 9);
     if (d > range) continue;
     tmpV.set(c.x, c.h + 6, -c.y).project(camera);
     if (tmpV.z > 1 || tmpV.x < -1.05 || tmpV.x > 1.05 || tmpV.y < -1.05 || tmpV.y > 1.05) continue;
-    picks.push({ c, d, sx: (tmpV.x * 0.5 + 0.5) * W, sy: (-tmpV.y * 0.5 + 0.5) * H, score: (c.lm ? 4 : 1) * (c.h + 40) / (d + 120) });
+    const score = c.place === 1 ? Math.log10(c.pop + 10) * 220 / (d + 1500) : c.place === 2 ? 300 / (d + 1500) : (c.lm ? 4 : 1) * (c.h + 40) / (d + 120);
+    picks.push({ c, d, sx: (tmpV.x * 0.5 + 0.5) * W, sy: (-tmpV.y * 0.5 + 0.5) * H, score });
   }
   picks.sort((a, b) => b.score - a.score);
   const placed = []; let k = 0;
@@ -1094,9 +1497,9 @@ function updateLabels() {
     if (hit) continue;
     placed.push([x0, y0, w]);
     const el = labelPool[k++];
-    const txt = p.c.name + '|' + (p.d > 999 ? (p.d / 1000).toFixed(1) + ' km' : Math.round(p.d / 10) * 10 + ' m');
-    if (el._t !== txt) { el._t = txt; el.innerHTML = ''; el.append(p.c.name); const sm = document.createElement('small'); sm.textContent = txt.split('|')[1]; el.append(sm); }
-    const cls = 'lab' + (p.c.lm ? (p.c.lm.found ? ' lm done' : ' lm') : '');
+    const txt = p.c.name + '|' + (p.c.place ? '' : p.d > 999 ? (p.d / 1000).toFixed(1) + ' km' : Math.round(p.d / 10) * 10 + ' m');
+    if (el._t !== txt) { el._t = txt; el.innerHTML = ''; el.append(p.c.name); const sm = document.createElement('small'); sm.textContent = txt.split('|')[1]; if (sm.textContent) el.append(sm); }
+    const cls = 'lab' + (p.c.lm ? (p.c.lm.found ? ' lm done' : ' lm') : p.c.place ? (p.c.place === 1 && p.c.pop > 60000 ? ' pl big' : ' pl') : '');
     if (el.className !== cls) el.className = cls;
     el.style.display = 'block';
     el.style.transform = `translate(${Math.round(p.sx)}px,${Math.round(p.sy - 38)}px) translate(-50%,-100%)`;
@@ -1114,7 +1517,7 @@ function updateTarget() {
     if (f) { hit = f; dist = t; break; }
   }
   if (!hit) { el.classList.remove('on'); return; }
-  const name = hit.ni >= 0 ? CITY.names[hit.ni] : KIND_NAMES[hit.kind] || 'Building';
+  const name = hit.name || KIND_NAMES[hit.kind] || 'Building';
   const txt = `${name}|${Math.round(hit.h)} m tall · ${Math.round(dist)} m away`;
   if (el._t !== txt) { el._t = txt; el.innerHTML = ''; el.append(name + ' '); const s = document.createElement('span'); s.textContent = '· ' + txt.split('|')[1]; el.append(s); }
   el.classList.add('on');
@@ -1123,18 +1526,27 @@ function updateTarget() {
 function updateLocation() {
   let best = null, bd = 1e9;
   for (const h of HOODS) { const d = Math.hypot(h[1] - player.x, h[2] - player.y); if (d < bd) { bd = d; best = h[0]; } }
+  if (bd > 1300 && MH) {
+    // the nearest neighbourhood if one is close, otherwise the nearest town
+    let nb = null, nd = 1600, tb = null, td = 1e9;
+    for (const p of MH.places) {
+      const d = Math.hypot(p[1] - player.x, p[2] - player.y);
+      if (p[3] === 0) { if (d < td) { td = d; tb = p[0]; } } else if (d < nd) { nd = d; nb = p[0]; }
+    }
+    best = nb || (td < 9000 ? tb : 'Lake Michigan');
+  }
   $('hood').textContent = best;
   let street = null, sd = 40;
   for (let ox = -1; ox <= 1; ox++) for (let oy = -1; oy <= 1; oy++) {
     const cell = gridGet(rGrid, player.x + ox * CELL, player.y + oy * CELL); if (!cell) continue;
-    for (const s of cell) { if (s.ni < 0) continue; const d = segDist(s, player.x, player.y) - s.hw; if (d < sd) { sd = d; street = CITY.names[s.ni]; } }
+    for (const s of cell) { if (!s.name) continue; const d = segDist(s, player.x, player.y) - s.hw; if (d < sd) { sd = d; street = s.name; } }
   }
   const under = blockedAt(player.x, player.y, -1, 5000);
   let txt = street || (best === 'Lake Michigan' ? 'Over the water' : 'Chicago');
   if (player.mode === 'walk' && player.onGround && player.alt - EYE > 3) {
     const roof = blockedAt(player.x, player.y, -1, player.alt);
-    txt = 'Rooftop' + (roof && roof.ni >= 0 ? ' · ' + CITY.names[roof.ni] : '');
-  } else if (under && under.ni >= 0 && player.mode === 'fly' && !street) txt = 'Above ' + CITY.names[under.ni];
+    txt = 'Rooftop' + (roof && roof.name ? ' · ' + roof.name : '');
+  } else if (under && under.name && player.mode === 'fly' && !street) txt = 'Above ' + under.name;
   $('street').textContent = txt;
   $('alt').textContent = Math.round(player.mode === 'walk' ? player.alt - EYE : player.alt);
   $('spd').textContent = Math.round(Math.hypot(player.vx, player.vy, player.vz) * 3.6);
@@ -1158,37 +1570,44 @@ function drawCompass() {
 }
 
 const miniCv = $('miniCv'), nctx = miniCv.getContext('2d');
+// world -> minimap transform: scale grows with altitude so the map zooms out as you climb
 function drawMini() {
-  const S = miniCv.width, c = S / 2, zoom = 1.05;
+  const S = miniCv.width, c = S / 2;
+  const ms = player.mode === 'walk' || player.alt < 420 ? 0.36 : Math.max(0.018, 0.36 * 420 / player.alt);
   nctx.setTransform(1, 0, 0, 1, 0, 0); nctx.fillStyle = '#39424d'; nctx.fillRect(0, 0, S, S);
-  nctx.translate(c, c); nctx.rotate(player.yaw); nctx.scale(zoom, zoom); nctx.translate(-mx(player.x), -my(player.y));
-  {
-    // only blit the part of the map that can be visible
-    const rad = c / zoom * 1.45, px = mx(player.x), py = my(player.y);
-    const sx0 = Math.max(0, Math.floor(px - rad)), sy0 = Math.max(0, Math.floor(py - rad));
-    const sx1 = Math.min(mapCv.width, Math.ceil(px + rad)), sy1 = Math.min(mapCv.height, Math.ceil(py + rad));
-    if (sx1 > sx0 && sy1 > sy0) nctx.drawImage(mapCv, sx0, sy0, sx1 - sx0, sy1 - sy0, sx0, sy0, sx1 - sx0, sy1 - sy0);
+  nctx.translate(c, c); nctx.rotate(player.yaw);
+  const P = (x, y) => [(x - player.x) * ms, (player.y - y) * ms];
+  if (metro.overview) {
+    const k = ms * MH.ground.ext / 4096, [ox, oy] = P(MH.ground.x0, MH.ground.y0 + MH.ground.ext);
+    nctx.imageSmoothingEnabled = true; nctx.drawImage(metro.overview, ox, oy, 4096 * k, 4096 * k);
+  }
+  if (ms >= 0.1) {
+    renderLocalMap(false);
+    const k = ms / LM.S, [lx, ly] = P(LM.cx - 600 / LM.S, LM.cy + 600 / LM.S);
+    nctx.drawImage(LM.cv, lx, ly, 1200 * k, 1200 * k);
+  } else if (!metro.overview) {
+    const [dx, dy] = P(BX0, BY1); nctx.drawImage(mapCv, dx, dy, (BX1 - BX0) * ms, (BY1 - BY0) * ms);
   }
   let near = null, nd = 1e9;
   for (const l of LANDMARKS) {
+    const [x, y] = P(l.x, l.y);
     nctx.fillStyle = l.found ? '#58d6c0' : '#ffc94d'; nctx.strokeStyle = 'rgba(0,0,0,.6)'; nctx.lineWidth = 2;
-    nctx.beginPath(); nctx.arc(mx(l.x), my(l.y), 7, 0, 6.3); nctx.fill(); nctx.stroke();
+    nctx.beginPath(); nctx.arc(x, y, 7, 0, 6.3); nctx.fill(); nctx.stroke();
     if (!l.found) { const d = Math.hypot(l.x - player.x, l.y - player.y); if (d < nd) { nd = d; near = l; } }
   }
-  if (shooter.on) { nctx.fillStyle = '#ff4d3d'; for (const b of shooter.bots) if (!(b.dead > 0)) { nctx.beginPath(); nctx.arc(mx(b.x), my(b.y), 6, 0, 6.3); nctx.fill(); } }
+  if (shooter.on) { nctx.fillStyle = '#ff4d3d'; for (const b of shooter.bots) if (!(b.dead > 0)) { const [x, y] = P(b.x, b.y); nctx.beginPath(); nctx.arc(x, y, 6, 0, 6.3); nctx.fill(); } }
   nctx.setTransform(1, 0, 0, 1, 0, 0);
   // pointer to the nearest undiscovered landmark when it is off the minimap
-  if (near && nd * MAP_S * zoom > c - 14) {
+  if (near && nd * ms > c - 14) {
     const ang = Math.atan2(near.x - player.x, near.y - player.y) + player.yaw;
     nctx.save(); nctx.translate(c + Math.sin(ang) * (c - 16), c - Math.cos(ang) * (c - 16)); nctx.rotate(ang);
     nctx.fillStyle = '#ffc94d'; nctx.beginPath(); nctx.moveTo(0, -11); nctx.lineTo(9, 8); nctx.lineTo(-9, 8); nctx.fill(); nctx.restore();
   }
   nctx.fillStyle = '#fff'; nctx.strokeStyle = '#10151d'; nctx.lineWidth = 3;
   nctx.beginPath(); nctx.moveTo(c, c - 15); nctx.lineTo(c + 10, c + 11); nctx.lineTo(c, c + 5); nctx.lineTo(c - 10, c + 11); nctx.closePath(); nctx.stroke(); nctx.fill();
-  // north marker
   const na = player.yaw;
   nctx.fillStyle = '#ff6b5e'; nctx.font = '700 22px system-ui, sans-serif'; nctx.textAlign = 'center'; nctx.textBaseline = 'middle';
-  nctx.fillText('N', c - Math.sin(-na) * (c - 20) * 1, c - Math.cos(na) * (c - 20));
+  nctx.fillText('N', c + Math.sin(na) * (c - 20), c - Math.cos(na) * (c - 20));
   const left = LANDMARKS.filter((l) => !l.found).length;
   $('questN').textContent = `${LANDMARKS.length - left} / ${LANDMARKS.length}`;
   $('questNext').textContent = near ? `Nearest: ${near.name} · ${nd > 999 ? (nd / 1000).toFixed(1) + ' km' : Math.round(nd / 10) * 10 + ' m'}` : 'You found them all!';
@@ -1202,11 +1621,11 @@ function toast(kicker, title, body, ms = 7000) {
 function checkDiscoveries() {
   for (const l of LANDMARKS) {
     if (l.found) continue;
-    if (Math.hypot(l.x - player.x, l.y - player.y) < 130 && player.alt < l.h + 260) {
+    if (Math.hypot(l.x - player.x, l.y - player.y) < l.r && player.alt < l.h + Math.max(260, l.r * 0.6)) {
       l.found = true; setBeam(l); saveFound(); renderLmList();
       const n = LANDMARKS.filter((q) => q.found).length;
       toast(`Landmark discovered · ${n} of ${LANDMARKS.length}`, l.name, l.fact);
-      if (n === LANDMARKS.length) setTimeout(() => toast('Explorer complete', 'You found every landmark!', 'All of downtown Chicago is yours. Try it again at night (press T).', 10000), 7500);
+      if (n === LANDMARKS.length) setTimeout(() => toast('Explorer complete', 'You found every landmark!', 'All of Chicagoland is yours. Try it again at night (press T).', 10000), 7500);
     }
   }
 }
@@ -1228,30 +1647,77 @@ function travelTo(l) {
   if (player.mode !== 'fly') setMode('fly');
   toggleMap(false);
 }
+// full map: pan / zoom over the whole metro area, click to travel
+const BM = { cx: 0, cy: 0, s: 0.05, drag: null, moved: false };
+function bigSize() {
+  const r = bigCv.getBoundingClientRect(), d = Math.min(2, window.devicePixelRatio || 1);
+  const w = Math.max(50, Math.round(r.width * d)), h = Math.max(50, Math.round(r.height * d));
+  if (bigCv.width !== w || bigCv.height !== h) { bigCv.width = w; bigCv.height = h; }
+  return d;
+}
+function bigToWorld(px, py) { const d = Math.min(2, window.devicePixelRatio || 1); return [BM.cx + (px * d - bigCv.width / 2) / BM.s, BM.cy - (py * d - bigCv.height / 2) / BM.s]; }
 function drawBig() {
-  bigCv.width = mapCv.width; bigCv.height = mapCv.height;
-  bctx.drawImage(mapCv, 0, 0);
-  for (const l of LANDMARKS) {
-    bctx.fillStyle = l.found ? '#58d6c0' : '#ffc94d'; bctx.strokeStyle = 'rgba(0,0,0,.7)'; bctx.lineWidth = 3;
-    bctx.beginPath(); bctx.arc(mx(l.x), my(l.y), 11, 0, 6.3); bctx.fill(); bctx.stroke();
+  const d = bigSize(), W = bigCv.width, H = bigCv.height;
+  const X = (x) => (x - BM.cx) * BM.s + W / 2, Y = (y) => (BM.cy - y) * BM.s + H / 2;
+  bctx.setTransform(1, 0, 0, 1, 0, 0); bctx.fillStyle = '#1c2633'; bctx.fillRect(0, 0, W, H);
+  bctx.imageSmoothingEnabled = true;
+  if (metro.overview) { const G = MH.ground; bctx.drawImage(metro.overview, X(G.x0), Y(G.y0 + G.ext), G.ext * BM.s, G.ext * BM.s); }
+  if (BM.s > 0.12) {
+    bctx.drawImage(mapCv, X(BX0), Y(BY1), (BX1 - BX0) * BM.s, (BY1 - BY0) * BM.s);
+    if (LM.cx < 1e8) bctx.drawImage(LM.cv, X(LM.cx - 600 / LM.S), Y(LM.cy + 600 / LM.S), 1200 / LM.S * BM.s, 1200 / LM.S * BM.s);
+  } else if (!metro.overview) bctx.drawImage(mapCv, X(BX0), Y(BY1), (BX1 - BX0) * BM.s, (BY1 - BY0) * BM.s);
+  // town names
+  if (MH) {
+    bctx.textAlign = 'center'; bctx.textBaseline = 'middle';
+    const minPop = BM.s < 0.02 ? 60000 : BM.s < 0.05 ? 15000 : BM.s < 0.12 ? 3000 : 0;
+    for (const p of MH.places) {
+      if (p[3] !== 0 || p[4] < minPop) continue;
+      const x = X(p[1]), y = Y(p[2]); if (x < -50 || y < -20 || x > W + 50 || y > H + 20) continue;
+      bctx.font = `${p[4] > 100000 ? 700 : 600} ${Math.round((p[4] > 100000 ? 15 : 12) * d)}px system-ui, sans-serif`;
+      bctx.lineWidth = 3 * d; bctx.strokeStyle = 'rgba(10,14,22,.85)'; bctx.strokeText(p[0], x, y); bctx.fillStyle = '#e8edf3'; bctx.fillText(p[0], x, y);
+    }
   }
-  bctx.save(); bctx.translate(mx(player.x), my(player.y)); bctx.rotate(-player.yaw);
+  for (const l of LANDMARKS) {
+    bctx.fillStyle = l.found ? '#58d6c0' : '#ffc94d'; bctx.strokeStyle = 'rgba(0,0,0,.7)'; bctx.lineWidth = 2 * d;
+    bctx.beginPath(); bctx.arc(X(l.x), Y(l.y), 6 * d, 0, 6.3); bctx.fill(); bctx.stroke();
+  }
+  bctx.save(); bctx.translate(X(player.x), Y(player.y)); bctx.rotate(-player.yaw); bctx.scale(d * 0.6, d * 0.6);
   bctx.fillStyle = '#fff'; bctx.strokeStyle = '#e5484d'; bctx.lineWidth = 6;
   bctx.beginPath(); bctx.moveTo(0, -30); bctx.lineTo(20, 22); bctx.lineTo(0, 10); bctx.lineTo(-20, 22); bctx.closePath(); bctx.stroke(); bctx.fill(); bctx.restore();
 }
 function toggleMap(on) {
   mapOpen = on === undefined ? !mapOpen : on;
   $('bigmap').classList.toggle('on', mapOpen);
-  if (mapOpen) { if (document.pointerLockElement) document.exitPointerLock(); drawBig(); }
+  if (mapOpen) {
+    if (document.pointerLockElement) document.exitPointerLock();
+    BM.cx = player.x; BM.cy = player.y; BM.s = MH ? 0.06 : 0.3;
+    renderLocalMap(true); drawBig();
+  }
 }
-bigCv.addEventListener('click', (e) => {
-  const r = bigCv.getBoundingClientRect();
-  const x = BX0 + (e.clientX - r.left) / r.width * (BX1 - BX0), y = BY1 - (e.clientY - r.top) / r.height * (BY1 - BY0);
+function travelToPoint(x, y) {
   const top = floorAt(x, y, 1e6);
-  if (player.mode === 'fly') placeAt(x, y, Math.max(player.alt, top + 40));
-  else placeAt(x, y, top + EYE + 0.5);
+  placeAt(x, y, Math.max(player.mode === 'fly' ? player.alt : 0, top + 60, 150));
+  if (player.mode !== 'fly') setMode('fly');
   toggleMap(false);
+}
+bigCv.addEventListener('pointerdown', (e) => { BM.drag = [e.clientX, e.clientY]; BM.moved = false; bigCv.setPointerCapture(e.pointerId); });
+bigCv.addEventListener('pointermove', (e) => {
+  if (!BM.drag) return;
+  const d = Math.min(2, window.devicePixelRatio || 1), dx = e.clientX - BM.drag[0], dy = e.clientY - BM.drag[1];
+  if (Math.abs(dx) + Math.abs(dy) > 4) BM.moved = true;
+  if (BM.moved) { BM.cx -= dx * d / BM.s; BM.cy += dy * d / BM.s; BM.drag = [e.clientX, e.clientY]; drawBig(); }
 });
+bigCv.addEventListener('pointerup', (e) => {
+  const was = BM.drag; BM.drag = null; if (!was || BM.moved) return;
+  const r = bigCv.getBoundingClientRect(); const [x, y] = bigToWorld(e.clientX - r.left, e.clientY - r.top);
+  travelToPoint(x, y);
+});
+bigCv.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const r = bigCv.getBoundingClientRect(), [wx, wy] = bigToWorld(e.clientX - r.left, e.clientY - r.top);
+  BM.s = clamp(BM.s * (e.deltaY > 0 ? 0.85 : 1.18), MH ? 0.006 : 0.15, 2);
+  const [nx, ny] = bigToWorld(e.clientX - r.left, e.clientY - r.top); BM.cx += wx - nx; BM.cy += wy - ny; drawBig();
+}, { passive: false });
 $('closemap').onclick = () => toggleMap(false);
 $('mini').addEventListener('click', () => { if (!shooter.on) toggleMap(true); });
 
@@ -1302,7 +1768,7 @@ window.addEventListener('mousemove', (e) => {
 });
 window.addEventListener('wheel', (e) => {
   if (!started || mapOpen) return;
-  player.flySpeed = clamp(player.flySpeed * (e.deltaY > 0 ? 0.87 : 1.15), 8, 400);
+  player.flySpeed = clamp(player.flySpeed * (e.deltaY > 0 ? 0.87 : 1.15), 8, 1500);
 }, { passive: true });
 
 // touch: left stick moves, dragging elsewhere looks
@@ -1477,9 +1943,14 @@ function startWave() {
   fpsMsg('Wave ' + S.wave, n + ' bots incoming', 2.5);
   sfxTone(440, 0.25, 0.12, 'triangle', 660);
 }
+let shooterWait = 0;
 function startShooter(atDefault) {
   const S = shooter; audioInit();
   if (atDefault) { const [x, y] = ll(41.8822, -87.6246); player.x = x; player.y = y; player.yaw = 0; }
+  if (!areaReady(player.x, player.y)) {            // streamed tiles not built yet: try again shortly
+    shooterWait = 1; fpsMsg('Loading this neighbourhood…', 'The shooter starts as soon as the buildings around you are ready.', 0); return;
+  }
+  shooterWait = 0;
   const [sx, sy] = findStreet(player.x, player.y);
   player.x = sx; player.y = sy; player.alt = EYE; player.vx = player.vy = player.vz = 0; player.pitch = 0; player.mode = 'walk'; player.onGround = true;
   if (!S.on) { S.savedLabels = labelsOn; labelsOn = false; }
@@ -1674,6 +2145,7 @@ function init() {
   buildProps();
   buildLabels();
   initShooter();
+  startMetro();
   renderLmList();
   $('go').disabled = false; $('goFps').disabled = false; $('loading').textContent = 'Start exploring';
   if (isTouch) $('helpGrid').innerHTML = '<div>Left stick</div><div>Move</div><div>Drag</div><div>Look around</div><div>▲ ▼</div><div>Fly up / down, or jump on foot</div><div>Walk / Fly</div><div>Drop in anywhere and explore at street level</div><div>Map</div><div>Full map and fast travel</div><div>Shoot</div><div>Shooter mode: fight waves of bots (hold Fire)</div>';
@@ -1687,6 +2159,11 @@ function frame(now) {
   const time = (now - clock0) / 1000;
   U.uTime.value = time;
   applyTod(1 - Math.exp(-dt * 1.6));
+  U.uFog.value = tod.fog / (1 + Math.max(0, camera.position.y - 150) / 450);
+  const near = clamp(camera.position.y * 0.0015, 0.3, 6); if (Math.abs(near - camera.near) > camera.near * 0.15) { camera.near = near; camera.updateProjectionMatrix(); }
+  processMetroQueue();
+  if (tick % 8 === 0) updateMetro();
+  if (shooterWait && tick % 15 === 0 && areaReady(player.x, player.y)) startShooter(false);
   if (!started) {
     const a = time * 0.045 + 2.4;
     camera.position.set(Math.sin(a) * 2300 + 200, 640, Math.cos(a) * 2300 - 300);
@@ -1720,6 +2197,6 @@ function frame(now) {
 // let the start card paint before the heavy build
 requestAnimationFrame(() => setTimeout(() => {
   try { init(); } catch (err) { $('loading').textContent = 'Could not start: ' + err.message; console.error(err); return; }
-  window.__chi = { shooter, startShooter, player, placeAt, setMode, LANDMARKS, ll, cycleTime, begin };
+  window.__chi = { metro, MH, shooter, startShooter, player, renderer, toggleMap, placeAt, setMode, LANDMARKS, ll, cycleTime, begin };
   requestAnimationFrame(frame);
 }, 30));

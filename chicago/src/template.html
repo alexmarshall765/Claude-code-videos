@@ -63,6 +63,9 @@
   .lab.lm { background: rgba(255, 201, 77, .92); color: #201400; }
   .lab.lm.done { background: rgba(88, 214, 192, .9); color: #04231d; }
   .lab small { font-weight: 500; opacity: .75; margin-left: 5px; }
+  .lab.pl { background: rgba(10, 14, 22, .32); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; text-shadow: 0 1px 3px rgba(0,0,0,.9); }
+  .lab.pl.big { font-size: 16px; letter-spacing: .1em; }
+  .lab.pl::after { display: none; }
 
   #toast { position: absolute; left: 50%; top: 84px; transform: translate(-50%, -16px); padding: 14px 20px; max-width: min(520px, 90vw);
     text-align: center; opacity: 0; transition: opacity .35s, transform .35s; border-color: rgba(255, 201, 77, .6); }
@@ -123,7 +126,7 @@
   #bigmap { position: fixed; inset: 0; display: none; background: rgba(6, 9, 15, .86); padding: 18px; gap: 16px; }
   #bigmap.on { display: flex; }
   #bigmap .mapwrap { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; position: relative; }
-  #bigmap canvas { max-width: 100%; max-height: 100%; border-radius: 10px; cursor: crosshair; box-shadow: 0 10px 40px rgba(0,0,0,.6); }
+  #bigmap canvas { width: 100%; height: 100%; border-radius: 10px; cursor: crosshair; box-shadow: 0 10px 40px rgba(0,0,0,.6); touch-action: none; }
   #bigmap .side { width: 270px; flex: none; display: flex; flex-direction: column; padding: 14px; min-height: 0; }
   #bigmap h2 { margin: 0 0 2px; font-size: 18px; }
   #bigmap .hint { font-size: 12px; color: var(--dim); margin-bottom: 10px; line-height: 1.4; }
@@ -203,8 +206,8 @@
 <div id="bigmap">
   <div class="mapwrap"><canvas id="bigCv"></canvas></div>
   <div class="side panel">
-    <h2>Downtown Chicago</h2>
-    <div class="hint">Click anywhere on the map to fast-travel there, or pick a landmark. Gold = not yet found.</div>
+    <h2>Chicagoland</h2>
+    <div class="hint">Scroll to zoom, drag to pan, click to fast-travel — or pick a landmark. Gold = not yet found.</div>
     <div id="lmlist"></div>
     <button id="closemap">Close map (M)</button>
   </div>
@@ -213,8 +216,8 @@
 <div id="start">
   <div class="card panel">
     <h1>Chicago <em>3D</em></h1>
-    <p class="sub">Fly over and walk through downtown Chicago — about 16,000 real buildings at their real heights,
-      from the Gold Coast to Soldier Field. Find all the landmarks marked by golden beacons.</p>
+    <p class="sub">Fly over and walk through the whole Chicago metro area — about 3 million real buildings, from Waukegan
+      to Joliet and Elgin to Gary, with downtown in full detail. Find the landmarks marked by golden beacons.</p>
     <div class="grid" id="helpGrid">
       <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></div><div>Move</div>
       <div>Mouse</div><div>Look around (click the view to capture the mouse, <kbd>Esc</kbd> to release)</div>
@@ -226,10 +229,12 @@
       <div><kbd>T</kbd> · <kbd>L</kbd> · <kbd>H</kbd></div><div>Time of day · building labels · this help</div>
     </div>
     <button id="go" disabled><span id="loading">Building the city…</span></button><button id="goFps" disabled>Play shooter mode</button>
+    <div class="fine" id="metroStatus"></div>
     <div class="fine">Works offline — everything is inside this one file. Map data © OpenStreetMap contributors and Overture Maps Foundation (ODbL).</div>
   </div>
 </div>
 
+<!--__METRO__-->
 <script id="city-data" type="application/json">/*__CITY_DATA__*/</script>
 <script>/*__APP_JS__*/</script>
 </body>

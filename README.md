@@ -3,4 +3,4 @@
 Cinematic shorts drawn entirely in code.
 
 - [`liberty/`](liberty/) — **LIBERTY: The American Project**: a 2:15 gold-on-black film about 250 years of the United States, from 1776 into the near future. It is made with HTML Canvas, rendered headlessly and assembled with FFmpeg. Open `liberty/index.html` to watch it in a browser, or run `node liberty/render.mjs` to render the MP4.
-- [`chicago/`](chicago/) — **Chicago 3D**: an explorable 3D map of downtown Chicago in a single offline HTML file. Open `chicago/chicago-3d.html` in a browser.
+- [`chicago/`](chicago/) — **Chicago 3D**: an explorable 3D map of the whole Chicago metro area in a single offline HTML file. Open `chicago/chicago-3d.html` in a browser.
